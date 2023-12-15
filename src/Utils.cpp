@@ -41,6 +41,27 @@ bool CheckInput(FILE* where)
 	return c == '\n';
 }
 
+char* ReadFileToBuf(const char* filePath)
+{
+	if (!filePath)
+		return nullptr;
+
+	size_t fileSize = GetFileSize(filePath);
+
+	char* buf = (char*)calloc(fileSize + 2, 1);
+	if (!buf)
+		return nullptr;
+
+	FILE* file = fopen(filePath, "r");
+	if (!file)
+		return nullptr;
+
+	if (fread(buf, 1, fileSize, file) != fileSize)
+		return nullptr;
+
+	return buf;
+}
+
 void SetConsoleColor(FILE* where, enum Color color)
 {
 	fprintf(where, "\033[0;%dm", (int)color);

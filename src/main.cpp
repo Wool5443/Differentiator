@@ -1,5 +1,7 @@
+#include <stdio.h>
 #include "Tree.hpp"
 #include "Differentiator.hpp"
+#include "RecursiveDescent.hpp"
 
 int main(int argc, const char* const argv[])
 {
@@ -8,12 +10,21 @@ int main(int argc, const char* const argv[])
     Tree::StartHtmlLogging();
 
     Tree tree = {};
-    tree.Read(argv[1]);
+    // tree.Read(argv[1]);
+
+    char* expression = ReadFileToBuf(argv[1]);
+
+    ParseExpression(&tree, expression);
+
     tree.Dump();
 
     Differentiate(&tree);
 
     tree.Dump();
+
+    tree.Destructor();
+
+    free(expression);
 
     Tree::EndHtmlLogging();
 

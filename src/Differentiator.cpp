@@ -180,7 +180,7 @@ ErrorCode _diffMultiply(TreeNode* node)
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
-    COPY_NODE(u,  node->left);
+    COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
     RETURN_ERROR(_recDiff(node->left));

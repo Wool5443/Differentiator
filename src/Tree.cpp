@@ -22,7 +22,7 @@ static FILE* HTML_FILE = NULL;
 static TreeNodeResult _recCopy(TreeNode* node);
 
 #ifdef SIZE_VERIFICATION
-static ErrorCode _recUpdateParentNodeCount(TreeNode* node, ssize_t change);
+static ErrorCode _recUpdateParentNodeCount(TreeNode* node);
 #endif
 
 static TreeNodeCountResult _recCountNodes(TreeNode* node);
@@ -113,6 +113,7 @@ ErrorCode TreeNode::Delete()
         return ERROR_TREE_LOOP;
 
     this->id = BAD_ID;
+    this->nodeCount = 0;
 
     if (this->parent)
     {
@@ -128,7 +129,7 @@ ErrorCode TreeNode::Delete()
             return ERROR_TREE_LOOP;
 
         #ifdef SIZE_VERIFICATION
-        _recUpdateParentNodeCount(this->parent, -(ssize_t)this->nodeCount);
+        _recUpdateParentNodeCount(this->parent);
         #endif
     }
 
@@ -174,31 +175,48 @@ ErrorCode TreeNode::SetLeft(TreeNode* left)
     MyAssertSoft(left, ERROR_NULLPTR);
 
     this->left = left;
+
     #ifdef SIZE_VERIFICATION
-    this->nodeCount += left->nodeCount;
+    this->nodeCount = 1;
+
+    if (left)
+        this->nodeCount += left->nodeCount;
+
+    if (this->right)
+        this->nodeCount += this->right->nodeCount;
     #endif
+
     left->parent = this;
 
     #ifdef SIZE_VERIFICATION
     if (this->parent)
-        return _recUpdateParentNodeCount(this->parent, left->nodeCount);
+        return _recUpdateParentNodeCount(this->parent);
     #endif
 
     return EVERYTHING_FINE;
 }
+
 ErrorCode TreeNode::SetRight(TreeNode* right)
 {
     MyAssertSoft(right, ERROR_NULLPTR);
 
     this->right = right;
+
     #ifdef SIZE_VERIFICATION
-    this->nodeCount += right->nodeCount;
+    this->nodeCount = 1;
+
+    if (this->left)
+        this->nodeCount += this->left->nodeCount;
+
+    if (right)
+        this->nodeCount += right->nodeCount;
     #endif
+
     right->parent = this;
 
     #ifdef SIZE_VERIFICATION
     if (this->parent)
-        return _recUpdateParentNodeCount(this->parent, right->nodeCount);
+        return _recUpdateParentNodeCount(this->parent);
     #endif
 
     return EVERYTHING_FINE;
@@ -255,7 +273,7 @@ static TreeNodeResult _recCopy(TreeNode* node)
 }
 
 #ifdef SIZE_VERIFICATION
-static ErrorCode _recUpdateParentNodeCount(TreeNode* node, ssize_t change)
+static ErrorCode _recUpdateParentNodeCount(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     if (node->id == BAD_ID)
@@ -264,13 +282,19 @@ static ErrorCode _recUpdateParentNodeCount(TreeNode* node, ssize_t change)
     size_t oldId = node->id;
     node->id = BAD_ID;
 
-    node->nodeCount += change;
+    node->nodeCount = 1;
+
+    if (node->left)
+        node->nodeCount += node->left->nodeCount;
+
+    if (node->right)
+        node->nodeCount += node->right->nodeCount;
 
     if (node->parent)
     {
         if (node->parent->left != node && node->parent->right != node)
             return ERROR_TREE_LOOP;
-        RETURN_ERROR(_recUpdateParentNodeCount(node->parent, change));
+        RETURN_ERROR(_recUpdateParentNodeCount(node->parent));
     }
 
     node->id = oldId;
@@ -391,8 +415,6 @@ static TreeNodeCountResult _recCountNodes(TreeNode* node)
 #ifdef SIZE_VERIFICATION
 ErrorCode Tree::RecalculateNodes()
 {
-    ERR_DUMP_RET(this);
-
     return _recRecalcNodes(this->root);
 }
 
@@ -408,9 +430,6 @@ ErrorCode _recRecalcNodes(TreeNode* node)
 
     node->nodeCount = 1;
 
-    if (!node->left && !node->right)
-        return EVERYTHING_FINE;
-    
     if (node->left)
     {
         RETURN_ERROR(_recRecalcNodes(node->left));
@@ -422,7 +441,7 @@ ErrorCode _recRecalcNodes(TreeNode* node)
         node->nodeCount += node->right->nodeCount;
     }
 
-    node->id = BAD_ID;
+    node->id = oldId;
 
     return EVERYTHING_FINE;
 }

@@ -61,7 +61,7 @@ do                                                                              
 do                                                                                                                          \
 {                                                                                                                           \
     if (result.error)                                                                                                       \
-        return {poison, result.error};                                                                                      \
+        return { poison, result.error };                                                                                      \
 } while (0)
 
 /**
@@ -182,6 +182,14 @@ void ClearBuffer(FILE* where);
  * @return false User entered something odd.
  */
 bool CheckInput(FILE* where);
+
+/**
+ * @brief Reads a file to a buffer and returns it.
+ * 
+ * @param [in] filePath path to the file.
+ * @return char* buffer.
+ */
+char* ReadFileToBuf(const char* filePath);
 
 /**
  * @brief Set the color of either stderr or stdout
