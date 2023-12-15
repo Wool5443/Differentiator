@@ -50,8 +50,11 @@ size_t StringLength(const char* string, char terminator);
  * 
  * @param [in] text - the text for the String.
  * @param [in] terminator - what the string ends with.
+ * @param [in] toFree - whether to free the string.
+ * 
+ * @return String.
 */
-String CreateString(const char* text, char terminator);
+String CreateString(const char* text, char terminator, bool toFree);
 
 /**
  * @brief Copies the source to the destination.

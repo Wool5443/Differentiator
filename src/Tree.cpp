@@ -2,8 +2,17 @@
 #include <string.h>
 #include <ctype.h>
 #include "Tree.hpp"
+#include "Differentiator.hpp"
 #include "OneginFunctions.hpp"
 #include "MinMax.hpp"
+
+struct _CharFindResult
+{
+    const char* value;
+    ErrorCode error;
+};
+
+static Text treeText;
 
 static const size_t MAX_PATH_LENGTH = 128;
 static const size_t MAX_COMMAND_LENGTH = 256;
@@ -33,6 +42,9 @@ static TreeNodeResult _recRead(Text* input, size_t* wordNum);
 
 static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket,
                                           size_t* wordNum);
+
+_CharFindResult _findChar(const String* string, char charToFind);
+
 
 #define ERR_DUMP_RET(tree)                              \
 do                                                      \
@@ -302,6 +314,8 @@ ErrorCode Tree::Destructor()
     #ifdef SIZE_VERIFICATION
     this->size = nullptr;
     #endif
+
+    DestroyText(&treeText);
     
     return EVERYTHING_FINE;
 }
@@ -357,6 +371,7 @@ static TreeNodeCountResult _recCountNodes(TreeNode* node)
     }
 
     count += countResult.value;
+    countResult = {};
 
     if (node->right)
     {
@@ -467,12 +482,9 @@ ErrorCode Tree::Dump()
 
     fprintf(outGraphFile, "\nNODE_%p[style = \"filled\", fillcolor = " NODE_COLOR ", ",
                            this->root);
-    if (this->root->value == TREE_POISON)
-        fprintf(outGraphFile, "label = \"{Value:\\nPOISON|{<left>Left|<right>Right}}\"];\n");
-    else
-        fprintf(outGraphFile,
-        "label = \"{Value:\\n" TREE_ELEMENT_SPECIFIER "|"
-        "{<left>Left|<right>Right}}\"];\n", this->root->value);
+    fprintf(outGraphFile, "label = \"{Value:\\n|");
+    PrintTreeElement(outGraphFile, &this->root->value);
+    fprintf(outGraphFile, "|{<left>Left|<right>Right}}\"];\n");
 
     size_t MAX_DEPTH = MAX_TREE_SIZE;
     #ifdef SIZE_VERIFICATION
@@ -515,10 +527,7 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
 
     fprintf(outGraphFile, "NODE_%p[style = \"filled\", fillcolor = " NODE_COLOR ", ", node);
     fprintf(outGraphFile, "label = \"{Value:\\n");
-    if (node->value == TREE_POISON)
-        fprintf(outGraphFile, "POISON");
-    else
-        fprintf(outGraphFile, TREE_ELEMENT_SPECIFIER, node->value);
+    PrintTreeElement(outGraphFile, &node->value);
     fprintf(outGraphFile, "|id:\\n");
 
     if (node->id == BAD_ID)
@@ -585,12 +594,17 @@ static ErrorCode _recPrint(TreeNode* node, FILE* outFile)
 {
     if (!node)
     {
-        fprintf(outFile, "nil%c", TREE_WORD_SEPARATOR);
+        fprintf(outFile, "_%c", TREE_WORD_SEPARATOR);
         return EVERYTHING_FINE;
     }
 
-    fprintf(outFile, "(%c" TREE_ELEMENT_SPECIFIER "%c", TREE_WORD_SEPARATOR, node->value, TREE_WORD_SEPARATOR);
+    fprintf(outFile, "(%c", TREE_WORD_SEPARATOR);
+
     RETURN_ERROR(_recPrint(node->left, outFile));
+
+    PrintTreeElement(outFile, &node->value);
+    fprintf(outFile, "%c", TREE_WORD_SEPARATOR);
+
     RETURN_ERROR(_recPrint(node->right, outFile));
     fprintf(outFile, ")%c", TREE_WORD_SEPARATOR);
 
@@ -601,12 +615,11 @@ ErrorCode Tree::Read(const char* readPath)
 {
     MyAssertSoft(readPath, ERROR_NULLPTR);
 
-    Text input = CreateText(readPath, TREE_WORD_SEPARATOR);
+    treeText = CreateText(readPath, TREE_WORD_SEPARATOR);
 
     size_t wordNum = 0;
 
-    TreeNodeResult rootRes = _recRead(&input, &wordNum);
-    DestroyText(&input);
+    TreeNodeResult rootRes = _recRead(&treeText, &wordNum);
 
     RETURN_ERROR(rootRes.error);
 
@@ -620,17 +633,17 @@ static TreeNodeResult _recRead(Text* input, size_t* wordNum)
     const String* string = &input->words[(*wordNum)++];
     ((char*)(string->text))[string->length] = '\0';
 
-    const char* openBracket = strchr(string->text, '(');
-    if (openBracket)
+    _CharFindResult openBracket = _findChar(string, '(');
+    if (openBracket.value)
     {
-        if (!StringIsEmptyChars(string->text, '('))
-            return { nullptr, ERROR_SYNTAX };
-        return _recReadOpenBracket(input, openBracket, wordNum);
+        RETURN_ERROR_RESULT(openBracket, nullptr);
+        return _recReadOpenBracket(input, openBracket.value, wordNum);
     }
 
-    const char* nil = strstr(string->text, "nil");
-    if (nil)
-        return { nullptr, EVERYTHING_FINE };
+    _CharFindResult nil = _findChar(string, '_');
+    if (nil.value)
+        return { nullptr, nil.error };
+
     return { nullptr, ERROR_SYNTAX };
 }
 
@@ -639,18 +652,77 @@ static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket, 
     if (!StringIsEmptyChars(openBracket + 1, '\0'))
         return { nullptr, ERROR_SYNTAX };
 
+    TreeNodeResult leftRes = _recRead(input, wordNum);
+    RETURN_ERROR_RESULT(leftRes, nullptr);
+
     const String* word = &input->words[(*wordNum)++];
     ((char*)(word->text))[word->length] = '\0';
 
-    TreeElement_t value = TREE_POISON;
-    int readChars = 0;
+    const char* valueStart = word->text;
+    const char* valueEnd   = word->text + word->length - 1;
 
-    if (sscanf(word->text, TREE_ELEMENT_SPECIFIER "%n", &value, &readChars) != 1 ||
-        !StringIsEmptyChars(word->text + readChars, '\0'))
-        return { nullptr, ERROR_SYNTAX };
-    
-    TreeNodeResult leftRes = _recRead(input, wordNum);
-    RETURN_ERROR_RESULT(leftRes, nullptr);
+    while (isspace(*valueStart))
+        valueStart++;
+
+    while (isspace(*valueEnd))
+        valueEnd--;
+    *(char*)(valueEnd + 1) = '\0';
+
+    TreeElement_t value = {};
+
+    double valNum = NAN;
+
+    if (sscanf(valueStart, "%lg", &valNum) == 1)
+    {
+        value.type = NUMBER_TYPE;
+        value.value.number = valNum;
+    }
+    else
+    {
+        switch (*valueStart)
+        {
+        case '+':
+        case '-':
+        case '*':
+        case '/':
+        case '^':
+            value.type = OPERATION_TYPE;
+            value.value.operation = *valueStart;
+            break;
+        default:
+            if (strcasecmp(valueStart, "ln") == 0)
+            {
+                value.type = OPERATION_TYPE;
+                value.value.operation = LN_OPERATION;
+            }
+            else if (strcasecmp(valueStart, "sin") == 0)
+            {
+                value.type = OPERATION_TYPE;
+                value.value.operation = SIN_OPERATION;
+            }
+            else if (strcasecmp(valueStart, "cos") == 0)
+            {
+                value.type = OPERATION_TYPE;
+                value.value.operation = COS_OPERATION;
+            }
+            else if (strcasecmp(valueStart, "exp") == 0)
+            {
+                value.type = OPERATION_TYPE;
+                value.value.operation = EXP_OPERATION;
+            }
+            else if (strcasecmp(valueStart, "tan") == 0)
+            {
+                value.type = OPERATION_TYPE;
+                value.value.operation = TAN_OPERATION;
+            }
+            else
+            {
+                value.type = VARIABLE_TYPE;
+                value.value.var = valueStart;
+            }
+            break;
+        }
+    }
 
     TreeNodeResult rightRes = _recRead(input, wordNum);
     RETURN_ERROR_RESULT(rightRes, nullptr);
@@ -661,19 +733,29 @@ static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket, 
     word = &input->words[(*wordNum)++];
     ((char*)(word->text))[word->length] = '\0';
 
-    const char* closeBracket = strchr(word->text, ')');
-    if (!closeBracket)
+    _CharFindResult closeBracket = _findChar(word, ')');
+    if (closeBracket.value)
+        RETURN_ERROR_RESULT(closeBracket, nullptr);
+    else
         return { nullptr, ERROR_SYNTAX };
     
     return nodeRes;
 }
 
-
-struct StringResult
+_CharFindResult _findChar(const String* string, char charToFind)
 {
-    const char* value;
-    ErrorCode error;
-};
+    MyAssertSoftResult(string, nullptr, ERROR_NULLPTR);
+
+    ErrorCode error = EVERYTHING_FINE;
+
+    for (size_t i = 0; i < string->length; i++)
+        if (string->text[i] == charToFind)
+            return { string->text + i, error };
+        else if (!isspace(string->text[i]))
+            error = ERROR_SYNTAX;
+
+    return { nullptr, ERROR_SYNTAX };
+}
 
 ErrorCode Tree::StartHtmlLogging()
 {

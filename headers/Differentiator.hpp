@@ -1,20 +1,11 @@
 #ifndef DIFFERENTIATOR_HPP
 #define DIFFERENTIATOR_HPP
 
-enum TreeElementType
-{
-    OPERATION_TYPE,
-    NUMBER_TYPE,
-};
+#include "Utils.hpp"
+#include "Tree.hpp"
 
-struct TreeElement
-{
-    TreeElementType type;
-    union value
-    {
-        char operation;
-        double number;
-    };
-};
+void PrintTreeElement(FILE* file, TreeElement* treeEl);
+
+ErrorCode Differentiate(Tree* tree);
 
 #endif

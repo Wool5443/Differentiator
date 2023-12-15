@@ -3,8 +3,8 @@
 #ifndef TREE_HPP
 #define TREE_HPP
 
-#include "Utils.hpp"
 #include "TreeSettings.ini"
+#include "Utils.hpp"
 
 struct TreeNodeResult;
 /** @struct TreeNode
