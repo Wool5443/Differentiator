@@ -1,44 +1,66 @@
 #include <stdio.h>
 #include "Differentiator.hpp"
 
-#define ERR_DUMP_RET(tree)                                          \
-do                                                                  \
-{                                                                   \
-    ErrorCode _verifyError = tree->Verify();                        \
-    if (_verifyError)                                               \
-    {                                                               \
-        tree->Dump();                                               \
-        return _verifyError;                                        \
-    }                                                               \
+#define ERR_DUMP_RET(tree)                                              \
+do                                                                      \
+{                                                                       \
+    ErrorCode _verifyError = tree->Verify();                            \
+    if (_verifyError)                                                   \
+    {                                                                   \
+        tree->Dump();                                                   \
+        return _verifyError;                                            \
+    }                                                                   \
 } while (0);
 
-#define ERR_DUMP_RET_RESULT(tree, poison)                           \
-do                                                                  \
-{                                                                   \
-    ErrorCode _verifyError = tree->Verify();                        \
-    if (_verifyError)                                               \
-    {                                                               \
-        tree->Dump();                                               \
-        return { poison, _verifyError };                            \
-    }                                                               \
+#define ERR_DUMP_RET_RESULT(tree, poison)                               \
+do                                                                      \
+{                                                                       \
+    ErrorCode _verifyError = tree->Verify();                            \
+    if (_verifyError)                                                   \
+    {                                                                   \
+        tree->Dump();                                                   \
+        return { poison, _verifyError };                                \
+    }                                                                   \
 } while (0);
 
-#define CREATE_NODE(name, val, left, right)                         \
-TreeNode* name = nullptr;                                           \
-do                                                                  \
-{                                                                   \
-    TreeNodeResult _tempNode = TreeNode::New(val, left, right);     \
-    RETURN_ERROR(_tempNode.error);                                  \
-    name = _tempNode.value;                                         \
+#define CREATE_NODE(name, val, left, right)                             \
+TreeNode* name = nullptr;                                               \
+do                                                                      \
+{                                                                       \
+    TreeNodeResult _tempNode = TreeNode::New(val, left, right);         \
+    RETURN_ERROR(_tempNode.error);                                      \
+    name = _tempNode.value;                                             \
 } while (0)
 
-#define COPY_NODE(name, node)                                       \
-TreeNode* name = nullptr;                                           \
-do                                                                  \
-{                                                                   \
-    TreeNodeResult _tempNode = node->Copy();                        \
-    RETURN_ERROR(_tempNode.error);                                  \
-    name = _tempNode.value;                                         \
+#define COPY_NODE(name, node)                                           \
+TreeNode* name = nullptr;                                               \
+do                                                                      \
+{                                                                       \
+    TreeNodeResult _tempNode = node->Copy();                            \
+    RETURN_ERROR(_tempNode.error);                                      \
+    name = _tempNode.value;                                             \
+} while (0)
+
+#define CREATE_NUMBER(name, val)                                        \
+TreeNode* name = nullptr;                                               \
+do                                                                      \
+{                                                                       \
+    TreeNodeResult _tempNode = TreeNode::New({}, nullptr, nullptr);     \
+    RETURN_ERROR(_tempNode.error);                                      \
+    name = _tempNode.value;                                             \
+    name->value.type = NUMBER_TYPE;                                     \
+    name->value.value.number = val;                                     \
+} while (0)
+
+#define CREATE_OPERATION(name, op, left, right)                         \
+TreeNode* name = nullptr;                                               \
+do                                                                      \
+{                                                                       \
+    TreeNodeResult _tempNode = TreeNode::New({}, left, right);          \
+    RETURN_ERROR(_tempNode.error);                                      \
+    name = _tempNode.value;                                             \
+    name->value.type = OPERATION_TYPE;                                  \
+    name->value.value.operation = op;                                   \
 } while (0)
 
 ErrorCode _recDiff(TreeNode* node);
@@ -61,6 +83,12 @@ ErrorCode _diffCos(TreeNode* node);
 
 ErrorCode _diffTan(TreeNode* node);
 
+ErrorCode _diffArcsin(TreeNode* node);
+
+ErrorCode _diffArccos(TreeNode* node);
+
+ErrorCode _diffArctan(TreeNode* node);
+
 ErrorCode _diffExp(TreeNode* node);
 
 void PrintTreeElement(FILE* file, TreeElement* treeEl)
@@ -70,24 +98,20 @@ void PrintTreeElement(FILE* file, TreeElement* treeEl)
     case OPERATION_TYPE:
         switch (treeEl->value.operation)
         {
-            case LN_OPERATION:
-                fprintf(file, "op: ln");
-                break;
-            case SIN_OPERATION:
-                fprintf(file, "op: sin");
-                break;
-            case COS_OPERATION:
-                fprintf(file, "op: cos");
-                break;
-            case TAN_OPERATION:
-                fprintf(file, "op: tan");
-                break;
-            case EXP_OPERATION:
-                fprintf(file, "op: exp");
-                break;
+
+#define DEF_FUNC(name, string, ...)                 \
+case name:                                          \
+    fprintf(file, "op: %s", string);                \
+    break;
+
+#include "DiffFunctions.hpp"
+
+#undef DEF_FUNC
+
             default:
-                fprintf(file, "op: %c", treeEl->value.operation);
+                fprintf(file, "ERROR VAL");
                 break;
+
         }
         break;
     case NUMBER_TYPE:
@@ -130,31 +154,17 @@ ErrorCode _recDiff(TreeNode* node)
         {
             switch (node->value.value.operation)
             {
-                case '+':
-                case '-':
-                    if (!node->left || !node->right)
-                        return ERROR_BAD_TREE;
-                    RETURN_ERROR(_recDiff(node->left));
-                    RETURN_ERROR(_recDiff(node->right));
-                    return EVERYTHING_FINE;
-                case '*':
-                    return _diffMultiply(node);
-                case '/':
-                    return _diffDivide(node);
-                case '^':
-                    return _diffPower(node);
-                case LN_OPERATION:
-                    return _diffLn(node);
-                case SIN_OPERATION:
-                    return _diffSin(node);
-                case COS_OPERATION:
-                    return _diffCos(node);
-                case TAN_OPERATION:
-                    return _diffTan(node);
-                case EXP_OPERATION:
-                    return _diffExp(node);
+
+#define DEF_FUNC(name, string, code, ...)                               \
+case name:                                                              \
+code;
+
+#include "DiffFunctions.hpp"
+
+#undef DEF_FUNC
+
                 default:
-                    return ERROR_SYNTAX;
+                    return ERROR_BAD_TREE;
             }
         }
         default:
@@ -166,34 +176,26 @@ ErrorCode _recDiff(TreeNode* node)
 ErrorCode _diffMultiply(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == '*',
-                 ERROR_BAD_VALUE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
-    COPY_NODE(uCopy,  node->left);
-    COPY_NODE(vCopy, node->right);
+    COPY_NODE(u,  node->left);
+    COPY_NODE(v, node->right);
 
     RETURN_ERROR(_recDiff(node->left));
     RETURN_ERROR(_recDiff(node->right));
 
     // u'v
-    CREATE_NODE(duv, {}, node->left, vCopy);
-
-    duv->value.type = OPERATION_TYPE;
-    duv->value.value.operation = '*';
+    CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
 
     // uv'
-    CREATE_NODE(udv, {}, uCopy, node->right);
-
-    udv->value.type = OPERATION_TYPE;
-    udv->value.value.operation = '*';
+    CREATE_OPERATION(udv, MUL_OPERATION, u, node->right);
 
     RETURN_ERROR(node->SetLeft(duv));
     RETURN_ERROR(node->SetRight(udv));
 
-    node->value.value.operation = '+';
+    node->value.value.operation = ADD_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -202,52 +204,35 @@ ErrorCode _diffMultiply(TreeNode* node)
 ErrorCode _diffDivide(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == '/',
-                 ERROR_BAD_VALUE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
-    COPY_NODE(uCopy, node->left);
-    COPY_NODE(vCopy, node->right);
+    COPY_NODE(u, node->left);
+    COPY_NODE(v, node->right);
 
     RETURN_ERROR(_recDiff(node->left));
     RETURN_ERROR(_recDiff(node->right));
 
     // u'v
-    CREATE_NODE(duv, {}, node->left, vCopy);
-
-    duv->value.type = OPERATION_TYPE;
-    duv->value.value.operation = '*';
+    CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
 
     // uv'
-    CREATE_NODE(udv, {}, uCopy, node->right);
-
-    udv->value.type = OPERATION_TYPE;
-    udv->value.value.operation = '*';
+    CREATE_OPERATION(udv, MUL_OPERATION, u, node->right);
 
     // u'v - uv'
-    CREATE_NODE(leftSub, {}, duv, udv);
-
-    leftSub->value.type = OPERATION_TYPE;
-    leftSub->value.value.operation = '-';
+    CREATE_OPERATION(leftSub, SUB_OPERATION, duv, udv);
 
     // v ^ 2
-    COPY_NODE(rightCopy2, vCopy);
-    CREATE_NODE(nodeNumber2, {}, nullptr, nullptr);
+    COPY_NODE(v2, v);
+    CREATE_NUMBER(node2, 2);
 
-    nodeNumber2->value.type = NUMBER_TYPE;
-    nodeNumber2->value.value.number = 2;
-
-    CREATE_NODE(vSquared, {}, rightCopy2, nodeNumber2);
-
-    vSquared->value.type = OPERATION_TYPE;
-    vSquared->value.value.operation = '^';
+    CREATE_OPERATION(vSquared, POWER_OPERATION, v2, node2);
 
     RETURN_ERROR(node->SetLeft(leftSub));
     RETURN_ERROR(node->SetRight(vSquared));
 
-    node->value.value.operation = '/';
+    node->value.value.operation = DIV_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -255,8 +240,6 @@ ErrorCode _diffDivide(TreeNode* node)
 ErrorCode _diffPower(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == '^',
-                 ERROR_BAD_VALUE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -279,37 +262,26 @@ ErrorCode _diffPower(TreeNode* node)
 ErrorCode _diffPowerNumber(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == '^',
-                 ERROR_BAD_VALUE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
-    COPY_NODE(uCopy, node->left);
+    COPY_NODE(u, node->left);
 
     RETURN_ERROR(_recDiff(node->left));
 
     // (a - 1)
-    CREATE_NODE(nodeAsub1, {}, nullptr, nullptr);
-
-    nodeAsub1->value.type = NUMBER_TYPE;
-    nodeAsub1->value.value.number = node->right->value.value.number - 1;
+    CREATE_NUMBER(nodeAsub1, node->right->value.value.number - 1);
 
     // u ^ (a - 1)
-    CREATE_NODE(uPowAsub1, {}, uCopy, nodeAsub1);
-
-    uPowAsub1->value.type = OPERATION_TYPE;
-    uPowAsub1->value.value.operation = '^';
+    CREATE_OPERATION(uPowAsub1, POWER_OPERATION, u, nodeAsub1);
 
     // a * u ^ (a - 1)
-    CREATE_NODE(aMulUPowSub1, {}, node->right, uPowAsub1);
-
-    aMulUPowSub1->value.type = OPERATION_TYPE;
-    aMulUPowSub1->value.value.operation = '*';
+    CREATE_OPERATION(aMulUPowSub1, MUL_OPERATION, node->right, uPowAsub1);
 
     RETURN_ERROR(node->SetRight(aMulUPowSub1));
 
-    node->value.value.operation = '*';
+    node->value.value.operation = MUL_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -318,58 +290,30 @@ ErrorCode _diffPowerNumber(TreeNode* node)
 ErrorCode _diffPowerVar(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == '^',
-                 ERROR_BAD_VALUE);
 
     CREATE_NODE(uPowV, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
-    CREATE_NODE(lnu, {}, u, nullptr);
+    CREATE_OPERATION(lnu, LN_OPERATION, u, nullptr);
 
-    lnu->value.type = OPERATION_TYPE;
-    lnu->value.value.operation = LN_OPERATION;
-
-    CREATE_NODE(vlnu, {}, v, lnu);
-
-    vlnu->value.type = OPERATION_TYPE;
-    vlnu->value.value.operation = '*';
+    CREATE_OPERATION(vlnu, MUL_OPERATION, v, lnu);
 
     RETURN_ERROR(_recDiff(vlnu));
-
-    node->value.value.operation = '*';
 
     RETURN_ERROR(node->SetLeft(uPowV));
     RETURN_ERROR(node->SetRight(vlnu));
 
+    node->value.value.operation = MUL_OPERATION;
+
     return EVERYTHING_FINE;
 }
 
-// (lnu)' = u' / u
-ErrorCode _diffLn(TreeNode* node)
-{
-    MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == LN_OPERATION,
-                 ERROR_BAD_VALUE);
-
-    if (!node->left || node->right)
-        return ERROR_BAD_TREE;
-
-    COPY_NODE(u, node->left);
-    RETURN_ERROR(_recDiff(node->left));
-
-    node->value.value.operation = '/';
-
-    return node->SetRight(u);
-}
-
-// (sinu)' = cosu * u'
+// (sinu)' = u' * cosu
 ErrorCode _diffSin(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == SIN_OPERATION,
-                 ERROR_BAD_VALUE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
@@ -378,20 +322,17 @@ ErrorCode _diffSin(TreeNode* node)
 
     RETURN_ERROR(_recDiff(node->left));
 
-    CREATE_NODE(cosu, {}, u, nullptr);
-    cosu->value.type = OPERATION_TYPE;
-    cosu->value.value.operation = COS_OPERATION;
+    CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
-    node->value.value.operation = '*';
+    node->value.value.operation = MUL_OPERATION;
 
     return node->SetRight(cosu);
 }
 
+// (cosu)' = u' * (-1 * sinu)
 ErrorCode _diffCos(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == COS_OPERATION,
-                 ERROR_BAD_VALUE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
@@ -400,19 +341,13 @@ ErrorCode _diffCos(TreeNode* node)
 
     RETURN_ERROR(_recDiff(node->left));
 
-    CREATE_NODE(sinu, {}, u, nullptr);
-    sinu->value.type = OPERATION_TYPE;
-    sinu->value.value.operation = SIN_OPERATION;
+    CREATE_OPERATION(sinu, SIN_OPERATION, u, nullptr);
 
-    CREATE_NODE(neg1, {}, nullptr, nullptr);
-    neg1->value.type = NUMBER_TYPE;
-    neg1->value.value.number = -1;
+    CREATE_NUMBER(neg1, -1);
 
-    CREATE_NODE(minusSinu, {}, neg1, sinu);
-    minusSinu->value.type = OPERATION_TYPE;
-    minusSinu->value.value.operation = '*';
+    CREATE_OPERATION(minusSinu, MUL_OPERATION, neg1, sinu);
 
-    node->value.value.operation = '*';
+    node->value.value.operation = MUL_OPERATION;
 
     return node->SetRight(minusSinu);
 }
@@ -421,8 +356,6 @@ ErrorCode _diffCos(TreeNode* node)
 ErrorCode _diffTan(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == TAN_OPERATION,
-                 ERROR_BAD_VALUE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
@@ -431,29 +364,77 @@ ErrorCode _diffTan(TreeNode* node)
 
     RETURN_ERROR(_recDiff(node->left));
 
-    CREATE_NODE(cosu, {}, u, nullptr);
-    cosu->value.type = OPERATION_TYPE;
-    cosu->value.value.operation = COS_OPERATION;
+    CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
-    CREATE_NODE(node2, {}, nullptr, nullptr);
-    node2->value.type = NUMBER_TYPE;
-    node2->value.value.number = 2;
+    CREATE_NUMBER(node2, 2);
 
-    CREATE_NODE(cosuSqr, {}, cosu, node2);
-    cosuSqr->value.type = OPERATION_TYPE;
-    cosuSqr->value.value.operation = '^';
+    CREATE_OPERATION(cosuSqr, POWER_OPERATION, cosu, node2);
 
-    node->value.value.operation = '/';
+    node->value.value.operation = DIV_OPERATION;
 
     return node->SetRight(cosuSqr);
+}
+
+// (arcsinu)' = u' / ((1 - u ^ 2) ^ 0.5)
+ErrorCode _diffArcsin(TreeNode* node)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+
+    COPY_NODE(u, node->left);
+    RETURN_ERROR(_recDiff(node->left));
+
+    CREATE_NUMBER(node2,  2);
+    CREATE_NUMBER(node05, 0.5);
+    CREATE_NUMBER(node1,  1);
+
+    CREATE_OPERATION(uSqr, POWER_OPERATION, u, node2);
+    CREATE_OPERATION(oneSubUSqr, SUB_OPERATION, node1, uSqr);
+    CREATE_OPERATION(oneSubUSqrSqrt, POWER_OPERATION, oneSubUSqr, node05);
+
+    node->value.value.operation = DIV_OPERATION;
+
+    return node->SetRight(oneSubUSqrSqrt);
+}
+
+// (arccosu)' = -(arcsinu)'
+ErrorCode _diffArccos(TreeNode* node)
+{
+    RETURN_ERROR(_diffArcsin(node));
+
+    CREATE_NODE(arcsin, node->value, node->left, node->right);
+    CREATE_NUMBER(neg1, -1);
+
+    RETURN_ERROR(node->SetLeft(neg1));
+    RETURN_ERROR(node->SetRight(arcsin));
+
+    node->value.value.operation = MUL_OPERATION;
+
+    return EVERYTHING_FINE;
+}
+
+// (arctanu)' = u' / (1 + u ^ 2)
+ErrorCode _diffArctan(TreeNode* node)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+
+    COPY_NODE(u, node->left);
+    RETURN_ERROR(_recDiff(node->left));
+
+    CREATE_NUMBER(one, 1);
+    CREATE_NUMBER(two, 2);
+
+    CREATE_OPERATION(uSqr, POWER_OPERATION, u, two);
+    CREATE_OPERATION(onePlusuSqr, ADD_OPERATION, one, uSqr);
+
+    node->value.value.operation = DIV_OPERATION;
+
+    return node->SetRight(onePlusuSqr);
 }
 
 // (e ^ u)' = e ^ u * u'
 ErrorCode _diffExp(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(node->value.type == OPERATION_TYPE && node->value.value.operation == EXP_OPERATION,
-                 ERROR_BAD_VALUE);
 
     CREATE_NODE(expu, node->value, node->left, node->right);
 
@@ -464,7 +445,23 @@ ErrorCode _diffExp(TreeNode* node)
     RETURN_ERROR(node->SetLeft(expu));
     RETURN_ERROR(node->SetRight(u));
 
-    node->value.value.operation = '*';
+    node->value.value.operation = MUL_OPERATION;
 
     return EVERYTHING_FINE;
+}
+
+// (lnu)' = u' / u
+ErrorCode _diffLn(TreeNode* node)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+
+    if (!node->left || node->right)
+        return ERROR_BAD_TREE;
+
+    COPY_NODE(u, node->left);
+    RETURN_ERROR(_recDiff(node->left));
+
+    node->value.value.operation = DIV_OPERATION;
+
+    return node->SetRight(u);
 }

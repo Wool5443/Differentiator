@@ -679,48 +679,20 @@ static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket, 
     }
     else
     {
-        switch (*valueStart)
+
+#define DEF_FUNC(name, string, ...)             \
+if (strcasecmp(string, valueStart) == 0)        \
+{                                               \
+    value.type = OPERATION_TYPE;                \
+    value.value.operation = name;               \
+} else
+#include "DiffFunctions.hpp"
+#undef DEF_FUNC
+
+/*else*/
         {
-        case '+':
-        case '-':
-        case '*':
-        case '/':
-        case '^':
-            value.type = OPERATION_TYPE;
-            value.value.operation = *valueStart;
-            break;
-        default:
-            if (strcasecmp(valueStart, "ln") == 0)
-            {
-                value.type = OPERATION_TYPE;
-                value.value.operation = LN_OPERATION;
-            }
-            else if (strcasecmp(valueStart, "sin") == 0)
-            {
-                value.type = OPERATION_TYPE;
-                value.value.operation = SIN_OPERATION;
-            }
-            else if (strcasecmp(valueStart, "cos") == 0)
-            {
-                value.type = OPERATION_TYPE;
-                value.value.operation = COS_OPERATION;
-            }
-            else if (strcasecmp(valueStart, "exp") == 0)
-            {
-                value.type = OPERATION_TYPE;
-                value.value.operation = EXP_OPERATION;
-            }
-            else if (strcasecmp(valueStart, "tan") == 0)
-            {
-                value.type = OPERATION_TYPE;
-                value.value.operation = TAN_OPERATION;
-            }
-            else
-            {
-                value.type = VARIABLE_TYPE;
-                value.value.var = valueStart;
-            }
-            break;
+            value.type = VARIABLE_TYPE;
+            value.value.var = valueStart;
         }
     }
 
