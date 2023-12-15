@@ -200,7 +200,7 @@ ErrorCode _diffMultiply(TreeNode* node)
     return EVERYTHING_FINE;
 }
 
-// (u / v)' = (u'v - uv') / (v * v)
+// (u / v)' = (u'v - uv') / (v ^ 2)
 ErrorCode _diffDivide(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
@@ -225,9 +225,9 @@ ErrorCode _diffDivide(TreeNode* node)
 
     // v ^ 2
     COPY_NODE(v2, v);
-    CREATE_NUMBER(node2, 2);
+    CREATE_NUMBER(two, 2);
 
-    CREATE_OPERATION(vSquared, POWER_OPERATION, v2, node2);
+    CREATE_OPERATION(vSquared, POWER_OPERATION, v2, two);
 
     RETURN_ERROR(node->SetLeft(leftSub));
     RETURN_ERROR(node->SetRight(vSquared));
@@ -271,15 +271,15 @@ ErrorCode _diffPowerNumber(TreeNode* node)
     RETURN_ERROR(_recDiff(node->left));
 
     // (a - 1)
-    CREATE_NUMBER(nodeAsub1, node->right->value.value.number - 1);
+    CREATE_NUMBER(aMinusOne, node->right->value.value.number - 1);
 
     // u ^ (a - 1)
-    CREATE_OPERATION(uPowAsub1, POWER_OPERATION, u, nodeAsub1);
+    CREATE_OPERATION(uPowAminusOne, POWER_OPERATION, u, aMinusOne);
 
     // a * u ^ (a - 1)
-    CREATE_OPERATION(aMulUPowSub1, MUL_OPERATION, node->right, uPowAsub1);
+    CREATE_OPERATION(aMulUPowMinusOne, MUL_OPERATION, node->right, uPowAminusOne);
 
-    RETURN_ERROR(node->SetRight(aMulUPowSub1));
+    RETURN_ERROR(node->SetRight(aMulUPowMinusOne));
 
     node->value.value.operation = MUL_OPERATION;
 
@@ -366,9 +366,9 @@ ErrorCode _diffTan(TreeNode* node)
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
-    CREATE_NUMBER(node2, 2);
+    CREATE_NUMBER(two, 2);
 
-    CREATE_OPERATION(cosuSqr, POWER_OPERATION, cosu, node2);
+    CREATE_OPERATION(cosuSqr, POWER_OPERATION, cosu, two);
 
     node->value.value.operation = DIV_OPERATION;
 
@@ -383,13 +383,13 @@ ErrorCode _diffArcsin(TreeNode* node)
     COPY_NODE(u, node->left);
     RETURN_ERROR(_recDiff(node->left));
 
-    CREATE_NUMBER(node2,  2);
-    CREATE_NUMBER(node05, 0.5);
-    CREATE_NUMBER(node1,  1);
+    CREATE_NUMBER(two,  2);
+    CREATE_NUMBER(zeroFive, 0.5);
+    CREATE_NUMBER(one,  1);
 
-    CREATE_OPERATION(uSqr, POWER_OPERATION, u, node2);
-    CREATE_OPERATION(oneSubUSqr, SUB_OPERATION, node1, uSqr);
-    CREATE_OPERATION(oneSubUSqrSqrt, POWER_OPERATION, oneSubUSqr, node05);
+    CREATE_OPERATION(uSqr, POWER_OPERATION, u, two);
+    CREATE_OPERATION(oneSubUSqr, SUB_OPERATION, one, uSqr);
+    CREATE_OPERATION(oneSubUSqrSqrt, POWER_OPERATION, oneSubUSqr, zeroFive);
 
     node->value.value.operation = DIV_OPERATION;
 
