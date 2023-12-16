@@ -79,15 +79,12 @@ TreeNodeResult _getN(const char** context)
 
     SKIP_SPACES();
 
-    double val = 0;
-
     const char* const oldString = CUR_CHAR_PTR;
 
-    while ('0' <= *CUR_CHAR_PTR && *CUR_CHAR_PTR <= '9')
-    {
-        val = 10 * val + *CUR_CHAR_PTR - '0';
-        CUR_CHAR_PTR++;
-    }
+    char* endPtr = nullptr;
+
+    double val = strtof(CUR_CHAR_PTR, &endPtr);
+    CUR_CHAR_PTR = endPtr;
 
     TreeNodeResult nodeRes = TreeNode::New({}, nullptr, nullptr);
     RETURN_ERROR_RESULT(nodeRes, nullptr);
