@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <string.h>
 #include "RecursiveDescent.hpp"
 
 #define SyntaxAssert(expression)                                        \
@@ -38,6 +39,7 @@ do                                                                      \
     while (isalpha(*CUR_CHAR_PTR))                                      \
         CUR_CHAR_PTR++;                                                 \
 } while (0)
+
 #define CUR_CHAR_PTR (*context)
 
 TreeNodeResult _getE(const char** context);
@@ -47,6 +49,10 @@ TreeNodeResult _getT(const char** context);
 TreeNodeResult _getP(const char** context);
 
 TreeNodeResult _getN(const char** context);
+
+TreeNodeResult _getId(const char** context);
+
+TreeNodeResult _getD(const char** context);
 
 ErrorCode ParseExpression(Tree* tree, const char* string)
 {
@@ -87,20 +93,10 @@ TreeNodeResult _getN(const char** context)
     RETURN_ERROR_RESULT(nodeRes, nullptr);
     TreeNode* node = nodeRes.value;
 
-    if (oldString != CUR_CHAR_PTR)
-    {
-        node->value.type = NUMBER_TYPE;
-        node->value.value.number = val;
-    }
-    else
-    {
-        node->value.type = VARIABLE_TYPE;
-        node->value.value.var = CUR_CHAR_PTR;
+    SyntaxAssertResult(oldString != CUR_CHAR_PTR, nullptr);
 
-        SKIP_ALPHA();
-        *(char*)CUR_CHAR_PTR = '\0';
-        CUR_CHAR_PTR++;
-    }
+    node->value.type = NUMBER_TYPE;
+    node->value.value.number = val;
 
     return { node, EVERYTHING_FINE };
 }
@@ -161,7 +157,7 @@ TreeNodeResult _getT(const char** context)
 {
     MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
 
-    TreeNodeResult resultRes = _getP(context);
+    TreeNodeResult resultRes = _getD(context);
     RETURN_ERROR_RESULT(resultRes, nullptr);
     TreeNode* result = resultRes.value;
 
@@ -173,7 +169,7 @@ TreeNodeResult _getT(const char** context)
 
         CUR_CHAR_PTR++;
 
-        TreeNodeResult valRes = _getP(context);
+        TreeNodeResult valRes = _getD(context);
         RETURN_ERROR_RESULT(valRes, nullptr);
         TreeNode* val = valRes.value;
 
@@ -229,6 +225,98 @@ TreeNodeResult _getP(const char** context)
 
         return nodeRes;
     }
+    if (isalpha(*CUR_CHAR_PTR))
+        return _getId(context);
 
     return _getN(context);
+}
+
+TreeNodeResult _getId(const char** context)
+{
+    MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
+
+#define DEF_FUNC(name, hasTwoArgs, string, length, ...)                 \
+SKIP_SPACES();                                                          \
+if (hasTwoArgs && strncasecmp(CUR_CHAR_PTR, string, length) == 0)       \
+{                                                                       \
+    SKIP_ALPHA();                                                       \
+    SKIP_SPACES();                                                      \
+                                                                        \
+    SyntaxAssertResult(*CUR_CHAR_PTR == '(', nullptr);                  \
+    CUR_CHAR_PTR++;                                                     \
+                                                                        \
+    TreeNodeResult valRes = _getE(context);                             \
+    RETURN_ERROR_RESULT(valRes, nullptr);                               \
+    TreeNode* val = valRes.value;                                       \
+                                                                        \
+    SKIP_SPACES();                                                      \
+                                                                        \
+    SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr);                  \
+    CUR_CHAR_PTR++;                                                     \
+                                                                        \
+    TreeNodeResult resultRes = TreeNode::New({}, val, nullptr);         \
+    RETURN_ERROR_RESULT(resultRes, nullptr);                            \
+    TreeNode* result = resultRes.value;                                 \
+                                                                        \
+    result->value.type = OPERATION_TYPE;                                \
+    result->value.value.operation = name;                               \
+    return resultRes;                                                   \
+}
+
+#include "DiffFunctions.hpp"
+
+#undef DEF_FUNC
+
+    SyntaxAssertResult(isalpha(*CUR_CHAR_PTR), nullptr);
+
+    TreeNodeResult varRes = TreeNode::New({}, nullptr, nullptr);
+    RETURN_ERROR_RESULT(varRes, nullptr);
+    TreeNode* var = varRes.value;
+
+    var->value.type = VARIABLE_TYPE;
+    var->value.value.var = *CUR_CHAR_PTR;
+
+    CUR_CHAR_PTR++;
+
+    return varRes;
+}
+
+TreeNodeResult _getD(const char** context)
+{
+    MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
+
+    TreeNodeResult resultRes = _getP(context);
+    RETURN_ERROR_RESULT(resultRes, nullptr);
+    TreeNode* result = resultRes.value;
+
+    SKIP_SPACES();
+
+    while (*CUR_CHAR_PTR == '^')
+    {
+        CUR_CHAR_PTR++;
+
+        TreeNodeResult valRes = _getP(context);
+        RETURN_ERROR_RESULT(valRes, nullptr);
+        TreeNode* val = valRes.value;
+
+        TreeNodeResult resCopyRes = TreeNode::New(result->value, result->left, result->right);
+        RETURN_ERROR_RESULT(resCopyRes, nullptr);
+        TreeNode* resCopy = resCopyRes.value;
+
+        ErrorCode err = result->SetLeft(resCopy);
+        if (err)
+            return { nullptr, err };
+
+        err = result->SetRight(val);
+        if (err)
+            return { nullptr, err };
+
+        result->value.type = OPERATION_TYPE;
+
+        result->value.value.operation = POWER_OPERATION;
+
+        SKIP_SPACES();
+    }
+
+    return { result, EVERYTHING_FINE };
 }

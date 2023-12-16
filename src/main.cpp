@@ -14,11 +14,15 @@ int main(int argc, const char* const argv[])
 
     char* expression = ReadFileToBuf(argv[1]);
 
-    ParseExpression(&tree, expression);
+    MyAssertSoft(expression, ERROR_NULLPTR);
+
+    ErrorCode error = ParseExpression(&tree, expression);
+    MyAssertSoft(!error, error);
 
     tree.Dump();
 
-    Differentiate(&tree);
+    error = Differentiate(&tree);
+    MyAssertSoft(!error, error);
 
     tree.Dump();
 

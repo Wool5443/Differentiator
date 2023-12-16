@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "RecursiveDescent.hpp"
 #include "Tree.hpp"
 #include "Differentiator.hpp"
 #include "OneginFunctions.hpp"
@@ -37,14 +38,6 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
 static ErrorCode _recDrawGraph(TreeNode* node, FILE* outGraphFile, size_t curDepth, const size_t maxDepth);
 
 static ErrorCode _recPrint(TreeNode* node, FILE* outFile);
-
-static TreeNodeResult _recRead(Text* input, size_t* wordNum);
-
-static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket,
-                                          size_t* wordNum);
-
-_CharFindResult _findChar(const String* string, char charToFind);
-
 
 #define ERR_DUMP_RET(tree)                              \
 do                                                      \
@@ -634,118 +627,7 @@ ErrorCode Tree::Read(const char* readPath)
 {
     MyAssertSoft(readPath, ERROR_NULLPTR);
 
-    treeText = CreateText(readPath, TREE_WORD_SEPARATOR);
-
-    size_t wordNum = 0;
-
-    TreeNodeResult rootRes = _recRead(&treeText, &wordNum);
-
-    RETURN_ERROR(rootRes.error);
-
-    return this->Init(rootRes.value);
-}
-
-static TreeNodeResult _recRead(Text* input, size_t* wordNum)
-{
-    MyAssertSoftResult(*wordNum < input->numberOfWords, NULL, ERROR_INDEX_OUT_OF_BOUNDS);
-
-    const String* string = &input->words[(*wordNum)++];
-    ((char*)(string->text))[string->length] = '\0';
-
-    _CharFindResult openBracket = _findChar(string, '(');
-    if (openBracket.value)
-    {
-        RETURN_ERROR_RESULT(openBracket, nullptr);
-        return _recReadOpenBracket(input, openBracket.value, wordNum);
-    }
-
-    _CharFindResult nil = _findChar(string, '_');
-    if (nil.value)
-        return { nullptr, nil.error };
-
-    return { nullptr, ERROR_SYNTAX };
-}
-
-static TreeNodeResult _recReadOpenBracket(Text* input, const char* openBracket, size_t* wordNum)
-{
-    if (!StringIsEmptyChars(openBracket + 1, '\0'))
-        return { nullptr, ERROR_SYNTAX };
-
-    TreeNodeResult leftRes = _recRead(input, wordNum);
-    RETURN_ERROR_RESULT(leftRes, nullptr);
-
-    const String* word = &input->words[(*wordNum)++];
-    ((char*)(word->text))[word->length] = '\0';
-
-    const char* valueStart = word->text;
-    const char* valueEnd   = word->text + word->length - 1;
-
-    while (isspace(*valueStart))
-        valueStart++;
-
-    while (isspace(*valueEnd))
-        valueEnd--;
-    *(char*)(valueEnd + 1) = '\0';
-
-    TreeElement_t value = {};
-
-    double valNum = NAN;
-
-    if (sscanf(valueStart, "%lg", &valNum) == 1)
-    {
-        value.type = NUMBER_TYPE;
-        value.value.number = valNum;
-    }
-    else
-    {
-
-#define DEF_FUNC(name, string, ...)             \
-if (strcasecmp(string, valueStart) == 0)        \
-{                                               \
-    value.type = OPERATION_TYPE;                \
-    value.value.operation = name;               \
-} else
-#include "DiffFunctions.hpp"
-#undef DEF_FUNC
-
-/*else*/
-        {
-            value.type = VARIABLE_TYPE;
-            value.value.var = valueStart;
-        }
-    }
-
-    TreeNodeResult rightRes = _recRead(input, wordNum);
-    RETURN_ERROR_RESULT(rightRes, nullptr);
-
-    TreeNodeResult nodeRes = TreeNode::New(value, leftRes.value, rightRes.value);
-    RETURN_ERROR_RESULT(nodeRes, nullptr);
-
-    word = &input->words[(*wordNum)++];
-    ((char*)(word->text))[word->length] = '\0';
-
-    _CharFindResult closeBracket = _findChar(word, ')');
-    if (closeBracket.value)
-        RETURN_ERROR_RESULT(closeBracket, nullptr);
-    else
-        return { nullptr, ERROR_SYNTAX };
-    
-    return nodeRes;
-}
-
-_CharFindResult _findChar(const String* string, char charToFind)
-{
-    MyAssertSoftResult(string, nullptr, ERROR_NULLPTR);
-
-    ErrorCode error = EVERYTHING_FINE;
-
-    for (size_t i = 0; i < string->length; i++)
-        if (string->text[i] == charToFind)
-            return { string->text + i, error };
-        else if (!isspace(string->text[i]))
-            error = ERROR_SYNTAX;
-
-    return { nullptr, ERROR_SYNTAX };
+    return ParseExpression(this, readPath);
 }
 
 ErrorCode Tree::StartHtmlLogging()

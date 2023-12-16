@@ -99,7 +99,7 @@ void PrintTreeElement(FILE* file, TreeElement* treeEl)
         switch (treeEl->value.operation)
         {
 
-#define DEF_FUNC(name, string, ...)                 \
+#define DEF_FUNC(name, hasTwoArgs, string, ...)     \
 case name:                                          \
     fprintf(file, "op: %s", string);                \
     break;
@@ -118,7 +118,7 @@ case name:                                          \
         fprintf(file, "num: %lg", treeEl->value.number);
         break;
     case VARIABLE_TYPE:
-        fprintf(file, "var: %s", treeEl->value.var);
+        fprintf(file, "var: %c", treeEl->value.var);
         break;
     default:
         fprintf(stderr, "ERROR ELEMENT\n");
@@ -155,7 +155,7 @@ ErrorCode _recDiff(TreeNode* node)
             switch (node->value.value.operation)
             {
 
-#define DEF_FUNC(name, string, code, ...)                               \
+#define DEF_FUNC(name, hasTwoArgs, string, length, code, ...)           \
 case name:                                                              \
 code;
 
