@@ -165,8 +165,6 @@ TreeNodeResult TreeNode::Copy()
 
 ErrorCode TreeNode::SetLeft(TreeNode* left)
 {
-    MyAssertSoft(left, ERROR_NULLPTR);
-
     this->left = left;
 
     #ifdef SIZE_VERIFICATION
@@ -179,7 +177,8 @@ ErrorCode TreeNode::SetLeft(TreeNode* left)
         this->nodeCount += this->right->nodeCount;
     #endif
 
-    left->parent = this;
+    if (left)
+        left->parent = this;
 
     #ifdef SIZE_VERIFICATION
     if (this->parent)
@@ -191,8 +190,6 @@ ErrorCode TreeNode::SetLeft(TreeNode* left)
 
 ErrorCode TreeNode::SetRight(TreeNode* right)
 {
-    MyAssertSoft(right, ERROR_NULLPTR);
-
     this->right = right;
 
     #ifdef SIZE_VERIFICATION
@@ -205,7 +202,8 @@ ErrorCode TreeNode::SetRight(TreeNode* right)
         this->nodeCount += right->nodeCount;
     #endif
 
-    right->parent = this;
+    if (right)
+        right->parent = this;
 
     #ifdef SIZE_VERIFICATION
     if (this->parent)

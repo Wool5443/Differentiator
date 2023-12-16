@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <math.h>
 #include "Differentiator.hpp"
+#include "DiffTreeDSL.hpp"
 
 #define ERR_DUMP_RET(tree)                                              \
 do                                                                      \
@@ -23,45 +25,11 @@ do                                                                      \
     }                                                                   \
 } while (0);
 
-#define CREATE_NODE(name, val, left, right)                             \
-TreeNode* name = nullptr;                                               \
-do                                                                      \
-{                                                                       \
-    TreeNodeResult _tempNode = TreeNode::New(val, left, right);         \
-    RETURN_ERROR(_tempNode.error);                                      \
-    name = _tempNode.value;                                             \
-} while (0)
-
-#define COPY_NODE(name, node)                                           \
-TreeNode* name = nullptr;                                               \
-do                                                                      \
-{                                                                       \
-    TreeNodeResult _tempNode = node->Copy();                            \
-    RETURN_ERROR(_tempNode.error);                                      \
-    name = _tempNode.value;                                             \
-} while (0)
-
-#define CREATE_NUMBER(name, val)                                        \
-TreeNode* name = nullptr;                                               \
-do                                                                      \
-{                                                                       \
-    TreeNodeResult _tempNode = TreeNode::New({}, nullptr, nullptr);     \
-    RETURN_ERROR(_tempNode.error);                                      \
-    name = _tempNode.value;                                             \
-    name->value.type = NUMBER_TYPE;                                     \
-    name->value.value.number = val;                                     \
-} while (0)
-
-#define CREATE_OPERATION(name, op, left, right)                         \
-TreeNode* name = nullptr;                                               \
-do                                                                      \
-{                                                                       \
-    TreeNodeResult _tempNode = TreeNode::New({}, left, right);          \
-    RETURN_ERROR(_tempNode.error);                                      \
-    name = _tempNode.value;                                             \
-    name->value.type = OPERATION_TYPE;                                  \
-    name->value.value.operation = op;                                   \
-} while (0)
+enum Direction
+{
+    LEFT,
+    RIGHT,
+};
 
 ErrorCode _recDiff(TreeNode* node);
 
@@ -74,8 +42,6 @@ ErrorCode _diffPower(TreeNode* node);
 ErrorCode _diffPowerNumber(TreeNode* node);
 
 ErrorCode _diffPowerVar(TreeNode* node);
-
-ErrorCode _diffLn(TreeNode* node);
 
 ErrorCode _diffSin(TreeNode* node);
 
@@ -90,6 +56,16 @@ ErrorCode _diffArccos(TreeNode* node);
 ErrorCode _diffArctan(TreeNode* node);
 
 ErrorCode _diffExp(TreeNode* node);
+
+ErrorCode _diffLn(TreeNode* node);
+
+ErrorCode _recOptimise(TreeNode* node, bool* keepOptimizingPtr);
+
+ErrorCode _recOptimizeConsts(TreeNode* node, bool* keepOptimizingPtr);
+
+ErrorCode _recOptimizeNeutrals(TreeNode* node, bool* keepOptimizingPtr);
+
+ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirection);
 
 void PrintTreeElement(FILE* file, TreeElement* treeEl)
 {
@@ -131,9 +107,6 @@ ErrorCode Differentiate(Tree* tree)
     MyAssertSoft(tree, ERROR_NULLPTR);
     ERR_DUMP_RET(tree);
 
-    if (tree->root->value.type != OPERATION_TYPE)
-        return ERROR_BAD_TREE;
-
     return _recDiff(tree->root);
 }
 
@@ -141,18 +114,18 @@ ErrorCode _recDiff(TreeNode* node)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
 
-    switch (node->value.type)
+    switch (NODE_TYPE(node))
     {
         case NUMBER_TYPE:
-            node->value.value.number = 0;
+            NODE_NUMBER(node) = 0;
             return EVERYTHING_FINE;
         case VARIABLE_TYPE:
-            node->value.type = NUMBER_TYPE;
-            node->value.value.number = 1;
+            NODE_TYPE(node) = NUMBER_TYPE;
+            NODE_NUMBER(node) = 1;
             return EVERYTHING_FINE;
         case OPERATION_TYPE:
         {
-            switch (node->value.value.operation)
+            switch (NODE_OPERATION(node))
             {
 
 #define DEF_FUNC(name, hasTwoArgs, string, length, code, ...)           \
@@ -195,7 +168,7 @@ ErrorCode _diffMultiply(TreeNode* node)
     RETURN_ERROR(node->SetLeft(duv));
     RETURN_ERROR(node->SetRight(udv));
 
-    node->value.value.operation = ADD_OPERATION;
+    NODE_OPERATION(node) = ADD_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -232,7 +205,7 @@ ErrorCode _diffDivide(TreeNode* node)
     RETURN_ERROR(node->SetLeft(leftSub));
     RETURN_ERROR(node->SetRight(vSquared));
 
-    node->value.value.operation = DIV_OPERATION;
+    NODE_OPERATION(node) = DIV_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -244,7 +217,7 @@ ErrorCode _diffPower(TreeNode* node)
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
-    switch (node->right->value.type)
+    switch (NODE_TYPE(node->right))
     {
         case NUMBER_TYPE:
             return _diffPowerNumber(node);
@@ -281,7 +254,7 @@ ErrorCode _diffPowerNumber(TreeNode* node)
 
     RETURN_ERROR(node->SetRight(aMulUPowMinusOne));
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -305,7 +278,7 @@ ErrorCode _diffPowerVar(TreeNode* node)
     RETURN_ERROR(node->SetLeft(uPowV));
     RETURN_ERROR(node->SetRight(vlnu));
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -324,7 +297,7 @@ ErrorCode _diffSin(TreeNode* node)
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return node->SetRight(cosu);
 }
@@ -347,7 +320,7 @@ ErrorCode _diffCos(TreeNode* node)
 
     CREATE_OPERATION(minusSinu, MUL_OPERATION, neg1, sinu);
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return node->SetRight(minusSinu);
 }
@@ -370,7 +343,7 @@ ErrorCode _diffTan(TreeNode* node)
 
     CREATE_OPERATION(cosuSqr, POWER_OPERATION, cosu, two);
 
-    node->value.value.operation = DIV_OPERATION;
+    NODE_OPERATION(node) = DIV_OPERATION;
 
     return node->SetRight(cosuSqr);
 }
@@ -391,7 +364,7 @@ ErrorCode _diffArcsin(TreeNode* node)
     CREATE_OPERATION(oneSubUSqr, SUB_OPERATION, one, uSqr);
     CREATE_OPERATION(oneSubUSqrSqrt, POWER_OPERATION, oneSubUSqr, zeroFive);
 
-    node->value.value.operation = DIV_OPERATION;
+    NODE_OPERATION(node) = DIV_OPERATION;
 
     return node->SetRight(oneSubUSqrSqrt);
 }
@@ -407,7 +380,7 @@ ErrorCode _diffArccos(TreeNode* node)
     RETURN_ERROR(node->SetLeft(neg1));
     RETURN_ERROR(node->SetRight(arcsin));
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -426,7 +399,7 @@ ErrorCode _diffArctan(TreeNode* node)
     CREATE_OPERATION(uSqr, POWER_OPERATION, u, two);
     CREATE_OPERATION(onePlusuSqr, ADD_OPERATION, one, uSqr);
 
-    node->value.value.operation = DIV_OPERATION;
+    NODE_OPERATION(node) = DIV_OPERATION;
 
     return node->SetRight(onePlusuSqr);
 }
@@ -445,7 +418,7 @@ ErrorCode _diffExp(TreeNode* node)
     RETURN_ERROR(node->SetLeft(expu));
     RETURN_ERROR(node->SetRight(u));
 
-    node->value.value.operation = MUL_OPERATION;
+    NODE_OPERATION(node) = MUL_OPERATION;
 
     return EVERYTHING_FINE;
 }
@@ -461,7 +434,232 @@ ErrorCode _diffLn(TreeNode* node)
     COPY_NODE(u, node->left);
     RETURN_ERROR(_recDiff(node->left));
 
-    node->value.value.operation = DIV_OPERATION;
+    NODE_OPERATION(node) = DIV_OPERATION;
 
     return node->SetRight(u);
+}
+
+ErrorCode Optimise(Tree* tree)
+{
+    MyAssertSoft(tree, ERROR_NULLPTR);
+
+    bool keepOptimising = true;
+
+    while (keepOptimising)
+        RETURN_ERROR(_recOptimise(tree->root, &keepOptimising));
+    
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _recOptimise(TreeNode* node, bool* keepOptimizingPtr)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
+
+    *keepOptimizingPtr = false;
+
+    RETURN_ERROR(_recOptimizeConsts(node, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimizeNeutrals(node, keepOptimizingPtr));
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _recOptimizeConsts(TreeNode* node, bool* keepOptimizingPtr)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
+
+    if (NODE_TYPE(node) == NUMBER_TYPE)
+        return EVERYTHING_FINE;
+
+    if (!node->left || !node->right)
+        return EVERYTHING_FINE;
+
+    RETURN_ERROR(_recOptimise(node->left, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->right, keepOptimizingPtr));
+
+    if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_TYPE(node->right) == NUMBER_TYPE)
+    {
+        *keepOptimizingPtr = true;
+        NODE_TYPE(node) = NUMBER_TYPE;
+
+        switch (NODE_OPERATION(node))
+        {
+            case ADD_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) + NODE_NUMBER(node->right);
+                break;
+            case SUB_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) - NODE_NUMBER(node->right);
+                break;
+            case MUL_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) * NODE_NUMBER(node->right);
+                break;
+            case DIV_OPERATION:
+                if (NODE_NUMBER(node->right) == 0)
+                    return ERROR_ZERO_DIVISION;
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) / NODE_NUMBER(node->right);
+                break;
+            case POWER_OPERATION:
+                NODE_NUMBER(node) = pow(NODE_NUMBER(node->left), NODE_NUMBER(node->right));
+                break;
+            default:
+                return EVERYTHING_FINE;
+        }
+
+        RETURN_ERROR(node->left->Delete());
+        RETURN_ERROR(node->right->Delete());
+        return EVERYTHING_FINE;
+    }
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _recOptimizeNeutrals(TreeNode* node, bool* keepOptimizingPtr)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
+
+    if (NODE_TYPE(node) != OPERATION_TYPE)
+        return EVERYTHING_FINE;
+
+    if (!node->left || !node->right)
+        return EVERYTHING_FINE;
+
+    RETURN_ERROR(_recOptimise(node->left, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->right, keepOptimizingPtr));
+
+    switch (NODE_OPERATION(node))
+    {
+        case ADD_OPERATION:
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, LEFT);
+            }
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, RIGHT);
+            }
+            break;
+        case SUB_OPERATION:
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, RIGHT);
+            }
+            break;
+        case MUL_OPERATION:
+            if (NODE_TYPE(node->left)  == NUMBER_TYPE && NODE_NUMBER(node->left)  == 0 ||
+                NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
+            {
+                *keepOptimizingPtr = true;
+                CREATE_NUMBER(zero, 0);
+                RETURN_ERROR(node->Delete());
+                node = zero;
+
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 1)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, LEFT);
+            }
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, RIGHT);
+            }
+            break;
+        case DIV_OPERATION:
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            {
+                *keepOptimizingPtr = true;
+                CREATE_NUMBER(zero, 0);
+                RETURN_ERROR(node->Delete());
+                node = zero;
+                
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, RIGHT);
+            }
+            break;
+        case POWER_OPERATION:
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            {
+                *keepOptimizingPtr = true;
+                CREATE_NUMBER(zero, 0);
+                RETURN_ERROR(node->Delete());
+                node = zero;
+                
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->left)  == NUMBER_TYPE && NODE_NUMBER(node->left)  == 1 ||
+                NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
+            {
+                *keepOptimizingPtr = true;
+                CREATE_NUMBER(one, 1);
+                RETURN_ERROR(node->Delete());
+                node = one;
+                
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            {
+                *keepOptimizingPtr = true;
+                return _deleteUnnededAndReplace(node, RIGHT);
+            }
+            break;
+        default:
+            return EVERYTHING_FINE;
+    }
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirection)
+{
+    MyAssertSoft(toReplace, ERROR_NULLPTR);
+
+    TreeNode* newNode = nullptr;
+
+    switch (deleteDirection)
+    {
+        case LEFT:
+            RETURN_ERROR(toReplace->left->Delete());
+            newNode = toReplace->right;
+            break;
+        case RIGHT:
+            RETURN_ERROR(toReplace->right->Delete());
+            newNode = toReplace->left;
+            break;
+        default:
+            return ERROR_BAD_VALUE;
+    }
+
+    toReplace->value = newNode->value;
+    toReplace->SetLeft(newNode->left);
+    toReplace->SetRight(newNode->right);
+
+    #ifdef SIZE_VERIFICATION
+    toReplace->nodeCount = newNode->nodeCount;
+    if (toReplace->parent)
+        if (toReplace->parent->left == toReplace)
+            toReplace->parent->SetLeft(toReplace);
+        else if (toReplace->parent->right == toReplace)
+            toReplace->parent->SetRight(toReplace);
+    #endif
+
+    newNode->value     = {};
+    newNode->left      = nullptr;
+    newNode->right     = nullptr;
+    newNode->parent    = nullptr;
+    newNode->nodeCount = SIZET_POISON;
+    newNode->id        = BAD_ID;
+
+    free(newNode);
+
+    return EVERYTHING_FINE;
 }

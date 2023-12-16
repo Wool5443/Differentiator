@@ -26,6 +26,11 @@ int main(int argc, const char* const argv[])
 
     tree.Dump();
 
+    error = Optimise(&tree);
+    MyAssertSoft(!error, error);
+
+    tree.Dump();
+
     tree.Destructor();
 
     free(expression);

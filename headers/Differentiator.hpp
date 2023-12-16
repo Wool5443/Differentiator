@@ -8,4 +8,6 @@ void PrintTreeElement(FILE* file, TreeElement* treeEl);
 
 ErrorCode Differentiate(Tree* tree);
 
+ErrorCode Optimise(Tree* tree);
+
 #endif
