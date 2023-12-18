@@ -1,6 +1,28 @@
 #ifndef DIFF_TREE_DSL_HPP
 #define DIFF_TREE_DSL_HPP
 
+#define ERR_DUMP_RET(tree)                              \
+do                                                      \
+{                                                       \
+    ErrorCode _verifyError = tree->Verify();            \
+    if (_verifyError)                                   \
+    {                                                   \
+        tree->Dump();                                   \
+        return _verifyError;                            \
+    }                                                   \
+} while (0);
+
+#define ERR_DUMP_RET_RESULT(tree, poison)               \
+do                                                      \
+{                                                       \
+    ErrorCode _verifyError = tree->Verify();            \
+    if (_verifyError)                                   \
+    {                                                   \
+        tree->Dump();                                   \
+        return { poison, _verifyError };                \
+    }                                                   \
+} while (0);
+
 #define CREATE_NODE(name, val, left, right)                             \
 TreeNode* name = nullptr;                                               \
 do                                                                      \

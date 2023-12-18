@@ -3,6 +3,6 @@
 
 #include "Tree.hpp"
 
-ErrorCode ParseExpression(Tree* tree, const char* string);
+ErrorCode ParseExpression(Tree* tree, char* string);
 
 #endif

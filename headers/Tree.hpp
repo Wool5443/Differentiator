@@ -17,6 +17,9 @@ struct TreeNodeResult;
  * @var TreeNode::id - size_t id - unique id of a node, used for dumping
  * @var TreeNode::nodeCount - number of all nodes going from the current one
 */
+
+void PrintTreeElement(FILE* file, TreeElement* treeEl);
+
 struct TreeNode
 {
     TreeElement_t value;
@@ -156,24 +159,6 @@ struct Tree
 
     static ErrorCode StartHtmlLogging();
     static ErrorCode EndHtmlLogging();
-
-    /**
-     * @brief Saves the tree in pre-order
-     * 
-     * @param [in] outPath - where to save
-     * @return Error
-     */
-    ErrorCode Print(const char* outPath);
-
-    /**
-     * @brief Read the tree in pre-order
-     * 
-     * @attention Make sure to delete the tree before reading into it
-     * 
-     * @param [in] readPath - what to read
-     * @return Error
-     */
-    ErrorCode Read(const char* readPath);
 };
 
 #endif

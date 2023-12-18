@@ -2,6 +2,7 @@
 #include "Tree.hpp"
 #include "Differentiator.hpp"
 #include "RecursiveDescent.hpp"
+#include "LatexWriter.hpp"
 
 int main(int argc, const char* const argv[])
 {
@@ -9,8 +10,11 @@ int main(int argc, const char* const argv[])
 
     Tree::StartHtmlLogging();
 
+    TexFileResult texFileRes = LatexFileInit("tex");
+    MyAssertSoft(!texFileRes.error, texFileRes.error);
+    FILE* texFile = texFileRes.value;
+
     Tree tree = {};
-    // tree.Read(argv[1]);
 
     char* expression = ReadFileToBuf(argv[1]);
 
@@ -18,29 +22,37 @@ int main(int argc, const char* const argv[])
 
     ErrorCode error = ParseExpression(&tree, expression);
     MyAssertSoft(!error, error);
-
     tree.Dump();
 
-    error = Optimise(&tree);
+    fprintf(texFile, "Найдем производную\n\\[");
+    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    fprintf(texFile, "\\]\n");
+
+    // error = Optimise(&tree, texFile);
+    // MyAssertSoft(!error, error);
+    // tree.Dump();
+
+    error = Differentiate(&tree, texFile);
     MyAssertSoft(!error, error);
-
     tree.Dump();
 
-    error = Differentiate(&tree);
+    error = Optimise(&tree, texFile);
     MyAssertSoft(!error, error);
-
     tree.Dump();
 
-    error = Optimise(&tree);
-    MyAssertSoft(!error, error);
+    // error = Differentiate(&tree, texFile);
+    // MyAssertSoft(!error, error);
+    // tree.Dump();
 
-    tree.Dump();
-
-    tree.Destructor();
-
-    free(expression);
+    // error = Optimise(&tree, texFile);
+    // MyAssertSoft(!error, error);
+    // tree.Dump();
 
     Tree::EndHtmlLogging();
 
-    return 0;
+    error = tree.Destructor();
+    MyAssertSoft(!error, error);
+    free(expression);
+
+    return LatexFileEnd(texFile, "tex");
 }

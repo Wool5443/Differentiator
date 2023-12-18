@@ -22,7 +22,7 @@ $(PREF_OBJ)%.o : $(PREF_SRC)%.cpp
 	$(CC) $(HEADERS) $(CFLAGS) -c $^ -o $@
 
 dirs:
-	mkdir obj log log/dot log/img
+	mkdir obj log log/dot log/img tex
 
 clean :
-	rm $(TARGET) $(PREF_OBJ)*.o log/img/*.png log/dot/*.dot
+	rm $(TARGET) $(PREF_OBJ)*.o log/img/*.png log/dot/*.dot tex/*

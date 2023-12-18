@@ -4,10 +4,8 @@
 #include "Utils.hpp"
 #include "Tree.hpp"
 
-void PrintTreeElement(FILE* file, TreeElement* treeEl);
+ErrorCode Differentiate(Tree* tree, FILE* texFile);
 
-ErrorCode Differentiate(Tree* tree);
-
-ErrorCode Optimise(Tree* tree);
+ErrorCode Optimise(Tree* tree, FILE* texFile);
 
 #endif

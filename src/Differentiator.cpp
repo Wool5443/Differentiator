@@ -2,28 +2,7 @@
 #include <math.h>
 #include "Differentiator.hpp"
 #include "DiffTreeDSL.hpp"
-
-#define ERR_DUMP_RET(tree)                                              \
-do                                                                      \
-{                                                                       \
-    ErrorCode _verifyError = tree->Verify();                            \
-    if (_verifyError)                                                   \
-    {                                                                   \
-        tree->Dump();                                                   \
-        return _verifyError;                                            \
-    }                                                                   \
-} while (0);
-
-#define ERR_DUMP_RET_RESULT(tree, poison)                               \
-do                                                                      \
-{                                                                       \
-    ErrorCode _verifyError = tree->Verify();                            \
-    if (_verifyError)                                                   \
-    {                                                                   \
-        tree->Dump();                                                   \
-        return { poison, _verifyError };                                \
-    }                                                                   \
-} while (0);
+#include "LatexWriter.hpp"
 
 enum Direction
 {
@@ -31,95 +10,48 @@ enum Direction
     RIGHT,
 };
 
-ErrorCode _recDiff(TreeNode* node);
+ErrorCode _recDiff(TreeNode* node, FILE* texFile);
+ErrorCode _diffMultiply(TreeNode* node, FILE* texFile);
+ErrorCode _diffDivide(TreeNode* node, FILE* texFile);
+ErrorCode _diffPower(TreeNode* node, FILE* texFile);
+ErrorCode _diffPowerNumber(TreeNode* node, FILE* texFile);
+ErrorCode _diffPowerVar(TreeNode* node, FILE* texFile);
+ErrorCode _diffSin(TreeNode* node, FILE* texFile);
+ErrorCode _diffCos(TreeNode* node, FILE* texFile);
+ErrorCode _diffTan(TreeNode* node, FILE* texFile);
+ErrorCode _diffArcsin(TreeNode* node, FILE* texFile);
+ErrorCode _diffArccos(TreeNode* node, FILE* texFile);
+ErrorCode _diffArctan(TreeNode* node, FILE* texFile);
+ErrorCode _diffExp(TreeNode* node, FILE* texFile);
+ErrorCode _diffLn(TreeNode* node, FILE* texFile);
 
-ErrorCode _diffMultiply(TreeNode* node);
-
-ErrorCode _diffDivide(TreeNode* node);
-
-ErrorCode _diffPower(TreeNode* node);
-
-ErrorCode _diffPowerNumber(TreeNode* node);
-
-ErrorCode _diffPowerVar(TreeNode* node);
-
-ErrorCode _diffSin(TreeNode* node);
-
-ErrorCode _diffCos(TreeNode* node);
-
-ErrorCode _diffTan(TreeNode* node);
-
-ErrorCode _diffArcsin(TreeNode* node);
-
-ErrorCode _diffArccos(TreeNode* node);
-
-ErrorCode _diffArctan(TreeNode* node);
-
-ErrorCode _diffExp(TreeNode* node);
-
-ErrorCode _diffLn(TreeNode* node);
-
-ErrorCode _recOptimise(TreeNode* node, bool* keepOptimizingPtr);
-
-ErrorCode _recOptimizeConsts(TreeNode* node, bool* keepOptimizingPtr);
-
-ErrorCode _recOptimizeNeutrals(TreeNode* node, bool* keepOptimizingPtr);
-
+ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
+ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
+ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
 ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirection);
 
-void PrintTreeElement(FILE* file, TreeElement* treeEl)
-{
-    switch (treeEl->type)
-    {
-    case OPERATION_TYPE:
-        switch (treeEl->value.operation)
-        {
-
-#define DEF_FUNC(name, hasTwoArgs, string, ...)     \
-case name:                                          \
-    fprintf(file, "op: %s", string);                \
-    break;
-
-#include "DiffFunctions.hpp"
-
-#undef DEF_FUNC
-
-            default:
-                fprintf(file, "ERROR VAL");
-                break;
-
-        }
-        break;
-    case NUMBER_TYPE:
-        fprintf(file, "num: %lg", treeEl->value.number);
-        break;
-    case VARIABLE_TYPE:
-        fprintf(file, "var: %c", treeEl->value.var);
-        break;
-    default:
-        fprintf(stderr, "ERROR ELEMENT\n");
-        break;
-    }
-}
-
-ErrorCode Differentiate(Tree* tree)
+ErrorCode Differentiate(Tree* tree, FILE* texFile)
 {
     MyAssertSoft(tree, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
     ERR_DUMP_RET(tree);
 
-    return _recDiff(tree->root);
+    return _recDiff(tree->root, texFile);
 }
 
-ErrorCode _recDiff(TreeNode* node)
+ErrorCode _recDiff(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     switch (NODE_TYPE(node))
     {
         case NUMBER_TYPE:
+            fprintf(texFile, "Видно, что $(%lg)' = 0$\n\\newline\n", NODE_NUMBER(node));
             NODE_NUMBER(node) = 0;
             return EVERYTHING_FINE;
         case VARIABLE_TYPE:
+            fprintf(texFile, "Видно, что $(%c)' = 1$\n\\newline\n", NODE_VAR(node));
             NODE_TYPE(node) = NUMBER_TYPE;
             NODE_NUMBER(node) = 1;
             return EVERYTHING_FINE;
@@ -128,27 +60,28 @@ ErrorCode _recDiff(TreeNode* node)
             switch (NODE_OPERATION(node))
             {
 
-#define DEF_FUNC(name, hasTwoArgs, string, length, code, ...)           \
-case name:                                                              \
-code;
+                #define DEF_FUNC(name, hasOneArg, string, length, code, ...)            \
+                case name:                                                              \
+                code;
 
-#include "DiffFunctions.hpp"
+                #include "DiffFunctions.hpp"
 
-#undef DEF_FUNC
+                #undef DEF_FUNC
 
                 default:
                     return ERROR_BAD_TREE;
             }
         }
         default:
-            return EVERYTHING_FINE;
+            return ERROR_BAD_VALUE;
     }
 }
 
 // (uv)' = u'v + uv'
-ErrorCode _diffMultiply(TreeNode* node)
+ErrorCode _diffMultiply(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -156,8 +89,15 @@ ErrorCode _diffMultiply(TreeNode* node)
     COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
-    RETURN_ERROR(_recDiff(node->left));
-    RETURN_ERROR(_recDiff(node->right));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left,  texFile));
+
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->right, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->right, texFile));
 
     // u'v
     CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
@@ -170,13 +110,19 @@ ErrorCode _diffMultiply(TreeNode* node)
 
     NODE_OPERATION(node) = ADD_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
 // (u / v)' = (u'v - uv') / (v ^ 2)
-ErrorCode _diffDivide(TreeNode* node)
+ErrorCode _diffDivide(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -184,8 +130,15 @@ ErrorCode _diffDivide(TreeNode* node)
     COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
-    RETURN_ERROR(_recDiff(node->left));
-    RETURN_ERROR(_recDiff(node->right));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left,  texFile));
+
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->right, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->right, texFile));
 
     // u'v
     CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
@@ -207,12 +160,18 @@ ErrorCode _diffDivide(TreeNode* node)
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
-ErrorCode _diffPower(TreeNode* node)
+ErrorCode _diffPower(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -220,10 +179,10 @@ ErrorCode _diffPower(TreeNode* node)
     switch (NODE_TYPE(node->right))
     {
         case NUMBER_TYPE:
-            return _diffPowerNumber(node);
+            return _diffPowerNumber(node, texFile);
         case VARIABLE_TYPE:
         case OPERATION_TYPE:
-            return _diffPowerVar(node);
+            return _diffPowerVar(node, texFile);
         default:
             return ERROR_SYNTAX;
     }
@@ -232,16 +191,20 @@ ErrorCode _diffPower(TreeNode* node)
 }
 
 // (u ^ a)' = a * u ^ (a - 1) * u'
-ErrorCode _diffPowerNumber(TreeNode* node)
+ErrorCode _diffPowerNumber(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    RETURN_ERROR(_recDiff(node->left));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left,  texFile));
 
     // (a - 1)
     CREATE_NUMBER(aMinusOne, node->right->value.value.number - 1);
@@ -256,13 +219,19 @@ ErrorCode _diffPowerNumber(TreeNode* node)
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
 // (u ^ v)' = (e ^ (v * lnu))' = u ^ v * (v * lnu)'
-ErrorCode _diffPowerVar(TreeNode* node)
+ErrorCode _diffPowerVar(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     CREATE_NODE(uPowV, node->value, node->left, node->right);
 
@@ -273,46 +242,69 @@ ErrorCode _diffPowerVar(TreeNode* node)
 
     CREATE_OPERATION(vlnu, MUL_OPERATION, v, lnu);
 
-    RETURN_ERROR(_recDiff(vlnu));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(vlnu, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(vlnu, texFile));
 
     RETURN_ERROR(node->SetLeft(uPowV));
     RETURN_ERROR(node->SetRight(vlnu));
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
 // (sinu)' = u' * cosu
-ErrorCode _diffSin(TreeNode* node)
+ErrorCode _diffSin(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    RETURN_ERROR(_recDiff(node->left));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    return node->SetRight(cosu);
+    RETURN_ERROR(node->SetRight(cosu));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
 // (cosu)' = u' * (-1 * sinu)
-ErrorCode _diffCos(TreeNode* node)
+ErrorCode _diffCos(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    RETURN_ERROR(_recDiff(node->left));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
 
     CREATE_OPERATION(sinu, SIN_OPERATION, u, nullptr);
 
@@ -322,20 +314,31 @@ ErrorCode _diffCos(TreeNode* node)
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    return node->SetRight(minusSinu);
+    RETURN_ERROR(node->SetRight(minusSinu));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
 // (tanu)' = u' / (cosu)^2
-ErrorCode _diffTan(TreeNode* node)
+ErrorCode _diffTan(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    RETURN_ERROR(_recDiff(node->left));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
@@ -345,20 +348,32 @@ ErrorCode _diffTan(TreeNode* node)
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
-    return node->SetRight(cosuSqr);
+    RETURN_ERROR(node->SetRight(cosuSqr));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
 // (arcsinu)' = u' / ((1 - u ^ 2) ^ 0.5)
-ErrorCode _diffArcsin(TreeNode* node)
+ErrorCode _diffArcsin(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     COPY_NODE(u, node->left);
-    RETURN_ERROR(_recDiff(node->left));
 
-    CREATE_NUMBER(two,  2);
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
+
+    CREATE_NUMBER(two, 2);
     CREATE_NUMBER(zeroFive, 0.5);
-    CREATE_NUMBER(one,  1);
+    CREATE_NUMBER(one, 1);
 
     CREATE_OPERATION(uSqr, POWER_OPERATION, u, two);
     CREATE_OPERATION(oneSubUSqr, SUB_OPERATION, one, uSqr);
@@ -366,13 +381,22 @@ ErrorCode _diffArcsin(TreeNode* node)
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
-    return node->SetRight(oneSubUSqrSqrt);
+    RETURN_ERROR(node->SetRight(oneSubUSqrSqrt));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
 // (arccosu)' = -(arcsinu)'
-ErrorCode _diffArccos(TreeNode* node)
+ErrorCode _diffArccos(TreeNode* node, FILE* texFile)
 {
-    RETURN_ERROR(_diffArcsin(node));
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    RETURN_ERROR(_diffArcsin(node, texFile));
 
     CREATE_NODE(arcsin, node->value, node->left, node->right);
     CREATE_NUMBER(neg1, -1);
@@ -382,16 +406,26 @@ ErrorCode _diffArccos(TreeNode* node)
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
 // (arctanu)' = u' / (1 + u ^ 2)
-ErrorCode _diffArctan(TreeNode* node)
+ErrorCode _diffArctan(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     COPY_NODE(u, node->left);
-    RETURN_ERROR(_recDiff(node->left));
+
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
 
     CREATE_NUMBER(one, 1);
     CREATE_NUMBER(two, 2);
@@ -401,82 +435,129 @@ ErrorCode _diffArctan(TreeNode* node)
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
-    return node->SetRight(onePlusuSqr);
+    RETURN_ERROR(node->SetRight(onePlusuSqr));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
 // (e ^ u)' = e ^ u * u'
-ErrorCode _diffExp(TreeNode* node)
+ErrorCode _diffExp(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     CREATE_NODE(expu, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
 
-    RETURN_ERROR(_recDiff(u));
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(u, texFile));
 
     RETURN_ERROR(node->SetLeft(expu));
     RETURN_ERROR(node->SetRight(u));
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
     return EVERYTHING_FINE;
 }
 
 // (lnu)' = u' / u
-ErrorCode _diffLn(TreeNode* node)
+ErrorCode _diffLn(TreeNode* node, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
-    RETURN_ERROR(_recDiff(node->left));
+
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node->left, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    RETURN_ERROR(_recDiff(node->left, texFile));
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
-    return node->SetRight(u);
+    RETURN_ERROR(node->SetRight(u));
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
 }
 
-ErrorCode Optimise(Tree* tree)
+ErrorCode Optimise(Tree* tree, FILE* texFile)
 {
     MyAssertSoft(tree, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     bool keepOptimising = true;
 
     while (keepOptimising)
-        RETURN_ERROR(_recOptimise(tree->root, &keepOptimising));
+        RETURN_ERROR(_recOptimise(tree->root, texFile, &keepOptimising));
     
     return EVERYTHING_FINE;
 }
 
-ErrorCode _recOptimise(TreeNode* node, bool* keepOptimizingPtr)
+ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     *keepOptimizingPtr = false;
 
-    RETURN_ERROR(_recOptimizeConsts(node, keepOptimizingPtr));
-    RETURN_ERROR(_recOptimizeNeutrals(node, keepOptimizingPtr));
+    switch (NODE_TYPE(node))
+    {
+        case NUMBER_TYPE:
+        case VARIABLE_TYPE:
+            return EVERYTHING_FINE;
+        default:
+            break;
+    }
+
+    RETURN_ERROR(_recOptimizeConsts(node, texFile, keepOptimizingPtr));
+
+    switch (NODE_TYPE(node))
+    {
+        case NUMBER_TYPE:
+        case VARIABLE_TYPE:
+            return EVERYTHING_FINE;
+        default:
+            break;
+    }
+
+    RETURN_ERROR(_recOptimizeNeutrals(node, texFile, keepOptimizingPtr));
 
     return EVERYTHING_FINE;
 }
 
-ErrorCode _recOptimizeConsts(TreeNode* node, bool* keepOptimizingPtr)
+ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
-    if (NODE_TYPE(node) == NUMBER_TYPE)
-        return EVERYTHING_FINE;
+    if (!node->right)
+        return _recOptimise(node->left, texFile, keepOptimizingPtr);
 
-    if (!node->left || !node->right)
-        return EVERYTHING_FINE;
-
-    RETURN_ERROR(_recOptimise(node->left, keepOptimizingPtr));
-    RETURN_ERROR(_recOptimise(node->right, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->left, texFile, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->right, texFile, keepOptimizingPtr));
 
     if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_TYPE(node->right) == NUMBER_TYPE)
     {
@@ -508,109 +589,197 @@ ErrorCode _recOptimizeConsts(TreeNode* node, bool* keepOptimizingPtr)
 
         RETURN_ERROR(node->left->Delete());
         RETURN_ERROR(node->right->Delete());
+
+        fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+        fprintf(texFile, "\\[");
+        RETURN_ERROR(LatexWrite(node, texFile));
+        fprintf(texFile, "\\]\n");
+
         return EVERYTHING_FINE;
     }
 
     return EVERYTHING_FINE;
 }
 
-ErrorCode _recOptimizeNeutrals(TreeNode* node, bool* keepOptimizingPtr)
+ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
-    if (NODE_TYPE(node) != OPERATION_TYPE)
-        return EVERYTHING_FINE;
+    if (!node->right)
+        return _recOptimise(node->left, texFile, keepOptimizingPtr);
 
-    if (!node->left || !node->right)
-        return EVERYTHING_FINE;
-
-    RETURN_ERROR(_recOptimise(node->left, keepOptimizingPtr));
-    RETURN_ERROR(_recOptimise(node->right, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->left, texFile, keepOptimizingPtr));
+    RETURN_ERROR(_recOptimise(node->right, texFile, keepOptimizingPtr));
 
     switch (NODE_OPERATION(node))
     {
         case ADD_OPERATION:
-            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
                 *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, LEFT);
-            }
-            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
-            {
-                *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, RIGHT);
-            }
-            break;
-        case SUB_OPERATION:
-            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
-            {
-                *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, RIGHT);
-            }
-            break;
-        case MUL_OPERATION:
-            if (NODE_TYPE(node->left)  == NUMBER_TYPE && NODE_NUMBER(node->left)  == 0 ||
-                NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
-            {
-                *keepOptimizingPtr = true;
-                CREATE_NUMBER(zero, 0);
-                RETURN_ERROR(node->Delete());
-                node = zero;
+                RETURN_ERROR(_deleteUnnededAndReplace(node, LEFT));
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
 
                 return EVERYTHING_FINE;
             }
-            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 1)
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
                 *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, LEFT);
+                RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
             }
-            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            break;
+        case SUB_OPERATION:
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
                 *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, RIGHT);
+                RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
+                
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
+            }
+            break;
+        case MUL_OPERATION:
+            if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0) ||
+                NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
+            {
+                *keepOptimizingPtr = true;
+                if (node->left)
+                    RETURN_ERROR(node->left->Delete());
+                if (node->right)
+                    RETURN_ERROR(node->right->Delete());
+
+                NODE_TYPE(node) = NUMBER_TYPE;
+                NODE_NUMBER(node) = 0;
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1))
+            {
+                *keepOptimizingPtr = true;
+                RETURN_ERROR(_deleteUnnededAndReplace(node, LEFT));
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
+            }
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
+            {
+                *keepOptimizingPtr = true;
+                RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
             }
             break;
         case DIV_OPERATION:
-            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
                 *keepOptimizingPtr = true;
-                CREATE_NUMBER(zero, 0);
-                RETURN_ERROR(node->Delete());
-                node = zero;
-                
+                if (node->left)
+                    RETURN_ERROR(node->left->Delete());
+                if (node->right)
+                    RETURN_ERROR(node->right->Delete());
+                    
+                NODE_TYPE(node) = NUMBER_TYPE;
+                NODE_NUMBER(node) = 0;
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
                 return EVERYTHING_FINE;
             }
-            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
             {
                 *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, RIGHT);
+                RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
+                
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
             }
             break;
         case POWER_OPERATION:
-            if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_NUMBER(node->left) == 0)
+            if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
                 *keepOptimizingPtr = true;
-                CREATE_NUMBER(zero, 0);
-                RETURN_ERROR(node->Delete());
-                node = zero;
-                
+                if (node->left)
+                    RETURN_ERROR(node->left->Delete());
+                if (node->right)
+                    RETURN_ERROR(node->right->Delete());
+                    
+                NODE_TYPE(node) = NUMBER_TYPE;
+                NODE_NUMBER(node) = 0;
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
                 return EVERYTHING_FINE;
             }
-            if (NODE_TYPE(node->left)  == NUMBER_TYPE && NODE_NUMBER(node->left)  == 1 ||
-                NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 0)
+            if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1) ||
+                NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
                 *keepOptimizingPtr = true;
-                CREATE_NUMBER(one, 1);
-                RETURN_ERROR(node->Delete());
-                node = one;
-                
-                return EVERYTHING_FINE;
+                if (node->left)
+                    RETURN_ERROR(node->left->Delete());
+                if (node->right)
+                    RETURN_ERROR(node->right->Delete());
+                    
+                NODE_TYPE(node) = NUMBER_TYPE;
+                NODE_NUMBER(node) = 1;
+
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+    return EVERYTHING_FINE;
             }
-            if (NODE_TYPE(node->right) == NUMBER_TYPE && NODE_NUMBER(node->right) == 1)
+            if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
             {
                 *keepOptimizingPtr = true;
-                return _deleteUnnededAndReplace(node, RIGHT);
+                RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
+                fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+                fprintf(texFile, "\\[");
+                RETURN_ERROR(LatexWrite(node, texFile));
+                fprintf(texFile, "\\]\n");
+
+                return EVERYTHING_FINE;
             }
             break;
         default:
@@ -642,15 +811,6 @@ ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirectio
     toReplace->value = newNode->value;
     toReplace->SetLeft(newNode->left);
     toReplace->SetRight(newNode->right);
-
-    #ifdef SIZE_VERIFICATION
-    toReplace->nodeCount = newNode->nodeCount;
-    if (toReplace->parent)
-        if (toReplace->parent->left == toReplace)
-            toReplace->parent->SetLeft(toReplace);
-        else if (toReplace->parent->right == toReplace)
-            toReplace->parent->SetRight(toReplace);
-    #endif
 
     newNode->value     = {};
     newNode->left      = nullptr;

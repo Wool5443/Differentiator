@@ -4,3 +4,5 @@
 main
 *.png
 *.dot
+tex/*
+*.pdf

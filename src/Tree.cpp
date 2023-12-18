@@ -3,8 +3,8 @@
 #include <ctype.h>
 #include "RecursiveDescent.hpp"
 #include "Tree.hpp"
+#include "DiffTreeDSL.hpp"
 #include "Differentiator.hpp"
-#include "OneginFunctions.hpp"
 #include "MinMax.hpp"
 
 struct _CharFindResult
@@ -12,8 +12,6 @@ struct _CharFindResult
     const char* value;
     ErrorCode error;
 };
-
-static Text treeText;
 
 static const size_t MAX_PATH_LENGTH = 128;
 static const size_t MAX_COMMAND_LENGTH = 256;
@@ -37,29 +35,40 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
 
 static ErrorCode _recDrawGraph(TreeNode* node, FILE* outGraphFile, size_t curDepth, const size_t maxDepth);
 
-static ErrorCode _recPrint(TreeNode* node, FILE* outFile);
+void PrintTreeElement(FILE* file, TreeElement* treeEl)
+{
+    switch (treeEl->type)
+    {
+    case OPERATION_TYPE:
+        switch (treeEl->value.operation)
+        {
 
-#define ERR_DUMP_RET(tree)                              \
-do                                                      \
-{                                                       \
-    ErrorCode _verifyError = tree->Verify();            \
-    if (_verifyError)                                   \
-    {                                                   \
-        tree->Dump();                                   \
-        return _verifyError;                            \
-    }                                                   \
-} while (0);
+#define DEF_FUNC(name, hasOneArg, string, ...)      \
+case name:                                          \
+    fprintf(file, "op: %s", string);                \
+    break;
 
-#define ERR_DUMP_RET_RESULT(tree, poison)               \
-do                                                      \
-{                                                       \
-    ErrorCode _verifyError = tree->Verify();            \
-    if (_verifyError)                                   \
-    {                                                   \
-        tree->Dump();                                   \
-        return { poison, _verifyError };                \
-    }                                                   \
-} while (0);
+#include "DiffFunctions.hpp"
+
+#undef DEF_FUNC
+
+            default:
+                fprintf(file, "ERROR VAL");
+                break;
+
+        }
+        break;
+    case NUMBER_TYPE:
+        fprintf(file, "num: %lg", treeEl->value.number);
+        break;
+    case VARIABLE_TYPE:
+        fprintf(file, "var: %c", treeEl->value.var);
+        break;
+    default:
+        fprintf(stderr, "ERROR ELEMENT\n");
+        break;
+    }
+}
 
 TreeNodeResult TreeNode::New(TreeElement_t value, TreeNode* left, TreeNode* right)
 {
@@ -329,8 +338,6 @@ ErrorCode Tree::Destructor()
     #ifdef SIZE_VERIFICATION
     this->size = nullptr;
     #endif
-
-    DestroyText(&treeText);
     
     return EVERYTHING_FINE;
 }
@@ -583,49 +590,6 @@ static ErrorCode _recDrawGraph(TreeNode* node, FILE* outGraphFile, size_t curDep
         RETURN_ERROR(_recDrawGraph(node->right, outGraphFile, curDepth + 1, maxDepth));
     }
     return EVERYTHING_FINE;
-}
-
-ErrorCode Tree::Print(const char* outPath)
-{
-    MyAssertSoft(outPath, ERROR_NULLPTR);
-    ERR_DUMP_RET(this);
-
-    FILE* outFile = fopen(outPath, "w");
-    MyAssertSoft(outFile, ERROR_BAD_FILE);
-
-    RETURN_ERROR(_recPrint(this->root, outFile));
-
-    fclose(outFile);
-
-    return EVERYTHING_FINE;
-}
-
-static ErrorCode _recPrint(TreeNode* node, FILE* outFile)
-{
-    if (!node)
-    {
-        fprintf(outFile, "_%c", TREE_WORD_SEPARATOR);
-        return EVERYTHING_FINE;
-    }
-
-    fprintf(outFile, "(%c", TREE_WORD_SEPARATOR);
-
-    RETURN_ERROR(_recPrint(node->left, outFile));
-
-    PrintTreeElement(outFile, &node->value);
-    fprintf(outFile, "%c", TREE_WORD_SEPARATOR);
-
-    RETURN_ERROR(_recPrint(node->right, outFile));
-    fprintf(outFile, ")%c", TREE_WORD_SEPARATOR);
-
-    return EVERYTHING_FINE;
-}
-
-ErrorCode Tree::Read(const char* readPath)
-{
-    MyAssertSoft(readPath, ERROR_NULLPTR);
-
-    return ParseExpression(this, readPath);
 }
 
 ErrorCode Tree::StartHtmlLogging()

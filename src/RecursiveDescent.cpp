@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <string.h>
 #include "RecursiveDescent.hpp"
+#include "StringFunctions.hpp"
 
 #define SyntaxAssert(expression)                                        \
 do                                                                      \
@@ -26,13 +27,6 @@ do                                                                      \
     }                                                                   \
 } while (0)
 
-#define SKIP_SPACES()                                                   \
-do                                                                      \
-{                                                                       \
-    while (isspace(*CUR_CHAR_PTR))                                      \
-        CUR_CHAR_PTR++;                                                 \
-} while (0)
-
 #define SKIP_ALPHA()                                                    \
 do                                                                      \
 {                                                                       \
@@ -54,18 +48,20 @@ TreeNodeResult _getId(const char** context);
 
 TreeNodeResult _getD(const char** context);
 
-ErrorCode ParseExpression(Tree* tree, const char* string)
+ErrorCode ParseExpression(Tree* tree, char* string)
 {
     MyAssertSoft(tree, ERROR_NULLPTR);
     MyAssertSoft(string, ERROR_NULLPTR);
 
-    const char** context = &string;
+    const char* filteredSpaces = StringFilter(string, " \t\n", '\0');
+    MyAssertSoft(filteredSpaces, ERROR_NULLPTR);
+
+    const char** context = (const char**)&string;
 
     TreeNodeResult root = _getE(context);
 
     RETURN_ERROR(root.error);
 
-    SKIP_SPACES();
     SyntaxAssert(*CUR_CHAR_PTR == '\0');
 
     RETURN_ERROR(tree->Init(root.value));
@@ -76,8 +72,6 @@ ErrorCode ParseExpression(Tree* tree, const char* string)
 TreeNodeResult _getN(const char** context)
 {
     MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
-
-    SKIP_SPACES();
 
     const char* const oldString = CUR_CHAR_PTR;
 
@@ -105,8 +99,6 @@ TreeNodeResult _getE(const char** context)
     TreeNodeResult resultRes = _getT(context);
     RETURN_ERROR_RESULT(resultRes, nullptr);
     TreeNode* result = resultRes.value;
-
-    SKIP_SPACES();
 
     while (*CUR_CHAR_PTR == '+' || *CUR_CHAR_PTR == '-')
     {
@@ -158,8 +150,6 @@ TreeNodeResult _getT(const char** context)
     RETURN_ERROR_RESULT(resultRes, nullptr);
     TreeNode* result = resultRes.value;
 
-    SKIP_SPACES();
-
     while (*CUR_CHAR_PTR == '*' || *CUR_CHAR_PTR == '/')
     {
         char operation = *CUR_CHAR_PTR;
@@ -195,8 +185,6 @@ TreeNodeResult _getT(const char** context)
             default:
                 SyntaxAssertResult(0, nullptr);
         }
-
-        SKIP_SPACES();
     }
 
     return { result, EVERYTHING_FINE };
@@ -206,16 +194,12 @@ TreeNodeResult _getP(const char** context)
 {
     MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
 
-    SKIP_SPACES();
-
     if (*CUR_CHAR_PTR == '(')
     {
         CUR_CHAR_PTR++;
 
         TreeNodeResult nodeRes = _getE(context);
         RETURN_ERROR_RESULT(nodeRes, nullptr);
-
-        SKIP_SPACES();
 
         SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr);
         CUR_CHAR_PTR++;
@@ -232,21 +216,16 @@ TreeNodeResult _getId(const char** context)
 {
     MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
 
-#define DEF_FUNC(name, hasTwoArgs, string, length, ...)                 \
-SKIP_SPACES();                                                          \
-if (hasTwoArgs && strncasecmp(CUR_CHAR_PTR, string, length) == 0)       \
+#define DEF_FUNC(name, hasOneArg, string, length, ...)                  \
+if (hasOneArg && strncasecmp(CUR_CHAR_PTR, string, length) == 0)        \
 {                                                                       \
-    SKIP_ALPHA();                                                       \
-    SKIP_SPACES();                                                      \
-                                                                        \
+    CUR_CHAR_PTR += length;                                             \
     SyntaxAssertResult(*CUR_CHAR_PTR == '(', nullptr);                  \
     CUR_CHAR_PTR++;                                                     \
                                                                         \
     TreeNodeResult valRes = _getE(context);                             \
     RETURN_ERROR_RESULT(valRes, nullptr);                               \
     TreeNode* val = valRes.value;                                       \
-                                                                        \
-    SKIP_SPACES();                                                      \
                                                                         \
     SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr);                  \
     CUR_CHAR_PTR++;                                                     \
@@ -286,8 +265,6 @@ TreeNodeResult _getD(const char** context)
     RETURN_ERROR_RESULT(resultRes, nullptr);
     TreeNode* result = resultRes.value;
 
-    SKIP_SPACES();
-
     while (*CUR_CHAR_PTR == '^')
     {
         CUR_CHAR_PTR++;
@@ -311,8 +288,6 @@ TreeNodeResult _getD(const char** context)
         result->value.type = OPERATION_TYPE;
 
         result->value.value.operation = POWER_OPERATION;
-
-        SKIP_SPACES();
     }
 
     return { result, EVERYTHING_FINE };

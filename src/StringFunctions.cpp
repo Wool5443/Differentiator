@@ -260,8 +260,8 @@ char* StringFindChar(char* where, const char target, char terminator)
 
 char* StringFilter(char* string, const char* filter, char terminator)
 {
-    MyAssertHard(string, ERROR_NULLPTR);
-    MyAssertHard(filter, ERROR_NULLPTR);
+    MyAssertHard(string, ERROR_NULLPTR, return nullptr);
+    MyAssertHard(filter, ERROR_NULLPTR, return nullptr);
 
     const char* readPtr = string;
     char* writePtr = string;
