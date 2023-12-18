@@ -156,12 +156,11 @@ ErrorCode _recTexWriteFunction(TreeNode* node, FILE* texFile, bool hasOneArg, co
                 fprintf(texFile, ")");
                 break;
             case DIV_OPERATION:
-                fprintf(texFile, "(");
                 fprintf(texFile, "\\frac{");
                 RETURN_ERROR(_recTexWrite(node->left, texFile));
                 fprintf(texFile, "}{");
                 RETURN_ERROR(_recTexWrite(node->right, texFile));
-                fprintf(texFile, "})");
+                fprintf(texFile, "}");
                 break;
             default:
                 return ERROR_BAD_VALUE;

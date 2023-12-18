@@ -50,6 +50,10 @@ int main(int argc, const char* const argv[])
 
     Tree::EndHtmlLogging();
 
+    fprintf(texFile, "В итоге имеем\n\\newline\n\\[");
+    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    fprintf(texFile, "\\]\n");
+
     error = tree.Destructor();
     MyAssertSoft(!error, error);
     free(expression);
