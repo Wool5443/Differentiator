@@ -130,7 +130,7 @@ do {                                                                            
     fprintf(stderr, "%s in %s in %s in line: %d\n", ERROR_CODE_NAMES[error], __FILE__, __PRETTY_FUNCTION__, __LINE__);      \
     SetConsoleColor(stderr, COLOR_WHITE);                                                                                   \
     __VA_ARGS__;                                                                                                            \
-    return {value, error};                                                                                                  \
+    return { value, error };                                                                                                  \
 } while(0)
 
 /**

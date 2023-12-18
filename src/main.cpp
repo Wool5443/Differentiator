@@ -24,29 +24,29 @@ int main(int argc, const char* const argv[])
     MyAssertSoft(!error, error);
     tree.Dump();
 
-    fprintf(texFile, "Найдем производную\n\\[");
+    fprintf(texFile, "Упростим\n\\[");
     RETURN_ERROR(LatexWrite(tree.root, texFile));
     fprintf(texFile, "\\]\n");
-
-    // error = Optimise(&tree, texFile);
-    // MyAssertSoft(!error, error);
-    // tree.Dump();
-
-    error = Differentiate(&tree, texFile);
-    MyAssertSoft(!error, error);
-    tree.Dump();
 
     error = Optimise(&tree, texFile);
     MyAssertSoft(!error, error);
     tree.Dump();
 
-    // error = Differentiate(&tree, texFile);
-    // MyAssertSoft(!error, error);
-    // tree.Dump();
+    fprintf(texFile, "Найдем производную\n\\[");
+    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    fprintf(texFile, "\\]\n");
 
-    // error = Optimise(&tree, texFile);
-    // MyAssertSoft(!error, error);
-    // tree.Dump();
+    error = Differentiate(&tree, texFile);
+    MyAssertSoft(!error, error);
+    tree.Dump();
+
+    fprintf(texFile, "Упростим\n\\[");
+    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    fprintf(texFile, "\\]\n");
+
+    error = Optimise(&tree, texFile);
+    MyAssertSoft(!error, error);
+    tree.Dump();
 
     Tree::EndHtmlLogging();
 

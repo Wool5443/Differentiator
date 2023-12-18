@@ -24,7 +24,8 @@ DEF_FUNC(ADD_OPERATION, false, "+", 1,
     fprintf(texFile, "\\]\n");
 
     return EVERYTHING_FINE;
-})
+},
+_add)
 DEF_FUNC(SUB_OPERATION, false, "-", 1,
 {
     if (!node->left || !node->right)
@@ -49,7 +50,8 @@ DEF_FUNC(SUB_OPERATION, false, "-", 1,
     fprintf(texFile, "\\]\n");
     
     return EVERYTHING_FINE;
-})
+},
+_sub)
 DEF_FUNC(MUL_OPERATION,     false, "*",      1, return _diffMultiply(node, texFile))
 DEF_FUNC(DIV_OPERATION,     false, "/",      1, return _diffDivide(node, texFile))
 DEF_FUNC(POWER_OPERATION,   false, "^",      1, return _diffPower(node, texFile))
