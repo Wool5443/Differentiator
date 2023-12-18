@@ -6,3 +6,4 @@ main
 *.dot
 tex/*
 *.pdf
+*.html
