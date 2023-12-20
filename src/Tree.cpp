@@ -447,6 +447,9 @@ ErrorCode _recRecalcNodes(TreeNode* node)
 
 #define FONT_SIZE "10"
 #define FONT_NAME "\"Fira Code Bold\""
+#define NODE_COLOR_OP "\"#f18f8f\""
+#define NODE_COLOR_NUM "\"#eee7a0\""
+#define NODE_COLOR_VAR "\"#a7e989\""
 #define BACK_GROUND_COLOR "\"#de97d4\""
 #define TREE_COLOR "\"#ff7be9\""
 #define NODE_COLOR "\"#fae1f6\""
@@ -482,8 +485,7 @@ ErrorCode Tree::Dump()
     "{\n"
     "rankdir = TB;\n"
     "node[shape = record, color = " NODE_FRAME_COLOR ", fontname = " FONT_NAME ", fontsize = " FONT_SIZE "];\n"
-    "bgcolor = " BACK_GROUND_COLOR ";\n"
-    );
+    "bgcolor = " BACK_GROUND_COLOR ";\n");
 
     fprintf(outGraphFile, "TREE[rank = \"min\", style = \"filled\", fillcolor = " TREE_COLOR ", "
                           "label = \"{Tree|Error: %s|"
@@ -497,8 +499,23 @@ ErrorCode Tree::Dump()
                           #endif
                           );
 
-    fprintf(outGraphFile, "\nNODE_%p[style = \"filled\", fillcolor = " NODE_COLOR ", ",
-                           this->root);
+    fprintf(outGraphFile, "\nNODE_%p[style = \"filled\", ", this->root);
+
+    switch (NODE_TYPE(this->root))
+    {
+        case OPERATION_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_OP ", ");
+            break;
+        case NUMBER_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_NUM ", ");
+            break;
+        case VARIABLE_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_VAR ", ");
+            break;
+        default:
+            return ERROR_BAD_VALUE;
+    }
+    
     fprintf(outGraphFile, "label = \"{Value:\\n|");
     PrintTreeElement(outGraphFile, &this->root->value);
     fprintf(outGraphFile, "|{<left>Left|<right>Right}}\"];\n");
@@ -542,7 +559,22 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
     if (curDepth > maxDepth)
         return EVERYTHING_FINE;
 
-    fprintf(outGraphFile, "NODE_%p[style = \"filled\", fillcolor = " NODE_COLOR ", ", node);
+    fprintf(outGraphFile, "\nNODE_%p[style = \"filled\", ", node);
+    switch (NODE_TYPE(node))
+    {
+        case OPERATION_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_OP ", ");
+            break;
+        case NUMBER_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_NUM ", ");
+            break;
+        case VARIABLE_TYPE:
+            fprintf(outGraphFile, "fillcolor = " NODE_COLOR_VAR ", ");
+            break;
+        default:
+            return ERROR_BAD_VALUE;
+    }
+
     fprintf(outGraphFile, "label = \"{Value:\\n");
     PrintTreeElement(outGraphFile, &node->value);
     fprintf(outGraphFile, "|id:\\n");

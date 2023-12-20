@@ -78,7 +78,6 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
     RETURN_ERROR(_recOptimise(node->left, texFile, keepOptimizingPtr));
     RETURN_ERROR(_recOptimise(node->right, texFile, keepOptimizingPtr));
 
-
     if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_TYPE(node->right) == NUMBER_TYPE)
     {
         *keepOptimizingPtr = true;

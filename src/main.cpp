@@ -54,7 +54,7 @@ int main(int argc, const char* const argv[])
     // OPTIMISE AFTER DIFF
     error = Optimise(&treeDiff1, texFile);
     MyAssertSoft(!error, error, free(expression));
-    tree.Dump();
+    treeDiff1.Dump();
 
     Tree::EndHtmlLogging();
 
