@@ -118,6 +118,15 @@ TreeResult Differentiate(Tree* tree, FILE* texFile)
 
     if (error)
         return { {}, error };
+
+    #ifdef TEX_WRITE
+    fprintf(texFile, "Найдем производную\n\\newline\n\\[");
+    error = LatexWrite(tree->root, texFile);
+    if (error)
+        return { {}, error };
+    fprintf(texFile, "\\]\n");
+    #endif
+
     return { newTree, EVERYTHING_FINE };
 }
 

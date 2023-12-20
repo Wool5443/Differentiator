@@ -18,6 +18,12 @@ ErrorCode _writeOptimiseStart(TreeNode* node, FILE*texFile);
 ErrorCode Optimise(Tree* tree, FILE* texFile)
 {
     MyAssertSoft(tree, ERROR_NULLPTR);
+
+    #ifdef TEX_WRITE
+    fprintf(texFile, "Упростим\n\\newline\n\\[");
+    RETURN_ERROR(LatexWrite(tree->root, texFile));
+    fprintf(texFile, "\\]\n");
+    #endif
     
     bool keepOptimising = true;
 
@@ -78,7 +84,7 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
         *keepOptimizingPtr = true;
 
         RETURN_ERROR(_writeOptimiseStart(node, texFile));
-        
+
         NODE_TYPE(node) = NUMBER_TYPE;
 
         switch (NODE_OPERATION(node))

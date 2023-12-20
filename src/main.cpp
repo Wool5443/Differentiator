@@ -28,43 +28,30 @@ int main(int argc, const char* const argv[])
 
     Tree::StartHtmlLogging();
 
+    // INIT TEX FILE
     TexFileResult texFileRes = LatexFileInit("tex");
     MyAssertSoft(!texFileRes.error, texFileRes.error);
     FILE* texFile = texFileRes.value;
 
     Tree tree = {};
 
+    // PARSE EXPRESSION
     ErrorCode error = ParseExpression(&tree, expression);
     MyAssertSoft(!error, error, free(expression));
     tree.Dump();
 
-    #ifdef TEX_WRITE
-    fprintf(texFile, "Упростим\n\\newline\n\\[");
-    RETURN_ERROR(LatexWrite(tree.root, texFile));
-    fprintf(texFile, "\\]\n");
-    #endif
-
+    // OPTIMISE BEFOR DIFF
     error = Optimise(&tree, texFile);
     MyAssertSoft(!error, error, free(expression));
     tree.Dump();
 
-    #ifdef TEX_WRITE
-    fprintf(texFile, "Найдем производную\n\\newline\n\\[");
-    RETURN_ERROR(LatexWrite(tree.root, texFile));
-    fprintf(texFile, "\\]\n");
-    #endif
-
+    // DIFF
     TreeResult treeDiff1Res = Differentiate(&tree, texFile);
     MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error, free(expression));
     Tree treeDiff1 = treeDiff1Res.value;
     treeDiff1.Dump();
 
-    #ifdef TEX_WRITE
-    fprintf(texFile, "Упростим\n\\newline\n\\[");
-    RETURN_ERROR(LatexWrite(treeDiff1.root, texFile));
-    fprintf(texFile, "\\]\n");
-    #endif
-
+    // OPTIMISE AFTER DIFF
     error = Optimise(&treeDiff1, texFile);
     MyAssertSoft(!error, error, free(expression));
     tree.Dump();
