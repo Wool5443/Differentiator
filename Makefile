@@ -25,4 +25,4 @@ dirs:
 	mkdir obj log log/dot log/img tex
 
 clean :
-	rm $(TARGET) $(PREF_OBJ)*.o log/img/*.png log/dot/*.dot tex/*
+	rm $(TARGET) $(PREF_OBJ)*.o
