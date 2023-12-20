@@ -55,7 +55,7 @@ int main(int argc, const char* const argv[])
     #endif
 
     TreeResult treeDiff1Res = Differentiate(&tree, texFile);
-    MyAssertSoft(!treeDiff1Res.error, error, free(expression));
+    MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error, free(expression));
     Tree treeDiff1 = treeDiff1Res.value;
     treeDiff1.Dump();
 

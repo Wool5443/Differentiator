@@ -111,6 +111,9 @@ TreeResult Differentiate(Tree* tree, FILE* texFile)
     if (error)
         return { {}, error };
 
+    tree->Dump();
+    newTree.Dump();
+
     error = _recDiff(newTree.root, tree->root, texFile);
 
     if (error)
@@ -179,7 +182,7 @@ ErrorCode _diffAddSub(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
-    return oldNode->Delete();
+    return EVERYTHING_FINE;
 }
 
 
@@ -333,6 +336,8 @@ ErrorCode _diffPowerVar(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 
     RETURN_ERROR(_writeNeedToFindDerivative(vlnu, texFile));
     RETURN_ERROR(_recDiff(vlnu, vlnuOld, texFile));
+
+    RETURN_ERROR(vlnuOld->Delete());
 
     RETURN_ERROR(node->SetLeft(uPowV));
     RETURN_ERROR(node->SetRight(vlnu));
@@ -555,7 +560,7 @@ ErrorCode _writeNeedToFindDerivative(TreeNode* node, FILE* texFile)
     MyAssertSoft(texFile, ERROR_BAD_FILE);
 
     fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node, texFile);
+    RETURN_ERROR(LatexWrite(node, texFile));
     fprintf(texFile, ")'$\n\\newline\n");
     #endif
 
