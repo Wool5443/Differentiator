@@ -1,13 +1,29 @@
 #include <stdio.h>
+#include <string.h>
 #include "Tree.hpp"
 #include "Differentiator.hpp"
 #include "RecursiveDescent.hpp"
 #include "LatexWriter.hpp"
 #include "Optimiser.hpp"
 
+static const size_t MAX_EXPRESSION_LENGTH = 256;
+#define MAX_EXPRESSION_LENGTH_DEFINE "256"
+
 int main(int argc, const char* const argv[])
 {
-    MyAssertSoft(argc == 2, ERROR_BAD_FILE);
+    char* expression = nullptr;
+    switch (argc)
+    {
+        case 1:
+            expression = (char*)calloc(MAX_EXPRESSION_LENGTH + 1, sizeof(*expression));
+            scanf("%" MAX_EXPRESSION_LENGTH_DEFINE "s", expression);
+            break;
+        case 2:
+            expression = strdup(argv[1]);
+            break;
+        default:
+            MyAssertSoft(0, ERROR_BAD_FILE);
+    }
 
     Tree::StartHtmlLogging();
 
@@ -16,8 +32,6 @@ int main(int argc, const char* const argv[])
     FILE* texFile = texFileRes.value;
 
     Tree tree = {};
-
-    char* expression = ReadFileToBuf(argv[1]);
 
     MyAssertSoft(expression, ERROR_NULLPTR);
 
