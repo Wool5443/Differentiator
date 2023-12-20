@@ -76,34 +76,34 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
     if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_TYPE(node->right) == NUMBER_TYPE)
     {
         *keepOptimizingPtr = true;
+
+        RETURN_ERROR(_writeOptimiseStart(node, texFile));
+        
         NODE_TYPE(node) = NUMBER_TYPE;
 
-        if (ADD_OPERATION <= NODE_OPERATION(node) && NODE_OPERATION(node) <= POWER_OPERATION)
+        switch (NODE_OPERATION(node))
         {
-            RETURN_ERROR(_writeOptimiseStart(node, texFile));
-            switch (NODE_OPERATION(node))
-            {
-                case ADD_OPERATION:
-                    NODE_NUMBER(node) = NODE_NUMBER(node->left) + NODE_NUMBER(node->right);
-                    break;
-                case SUB_OPERATION:
-                    NODE_NUMBER(node) = NODE_NUMBER(node->left) - NODE_NUMBER(node->right);
-                    break;
-                case MUL_OPERATION:
-                    NODE_NUMBER(node) = NODE_NUMBER(node->left) * NODE_NUMBER(node->right);
-                    break;
-                case DIV_OPERATION:
-                    if (NODE_NUMBER(node->right) == 0)
-                        return ERROR_ZERO_DIVISION;
-                    NODE_NUMBER(node) = NODE_NUMBER(node->left) / NODE_NUMBER(node->right);
-                    break;
-                case POWER_OPERATION:
-                    NODE_NUMBER(node) = pow(NODE_NUMBER(node->left), NODE_NUMBER(node->right));
-                    break;
-                default:
-                    return EVERYTHING_FINE;
-            }
+            case ADD_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) + NODE_NUMBER(node->right);
+                break;
+            case SUB_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) - NODE_NUMBER(node->right);
+                break;
+            case MUL_OPERATION:
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) * NODE_NUMBER(node->right);
+                break;
+            case DIV_OPERATION:
+                if (NODE_NUMBER(node->right) == 0)
+                    return ERROR_ZERO_DIVISION;
+                NODE_NUMBER(node) = NODE_NUMBER(node->left) / NODE_NUMBER(node->right);
+                break;
+            case POWER_OPERATION:
+                NODE_NUMBER(node) = pow(NODE_NUMBER(node->left), NODE_NUMBER(node->right));
+                break;
+            default:
+                return EVERYTHING_FINE;
         }
+
         RETURN_ERROR(node->left->Delete());
         RETURN_ERROR(node->right->Delete());
 

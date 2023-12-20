@@ -27,6 +27,8 @@ int main(int argc, const char* const argv[])
 
     Tree::StartHtmlLogging();
 
+    
+
     TexFileResult texFileRes = LatexFileInit("tex");
     MyAssertSoft(!texFileRes.error, texFileRes.error);
     FILE* texFile = texFileRes.value;
