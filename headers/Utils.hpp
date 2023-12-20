@@ -49,20 +49,26 @@ static const char* ERROR_CODE_NAMES[] =
 
 static const size_t SIZET_POISON = (size_t)-1;
 
-#define RETURN_ERROR(error)                                                                                                 \
+#define RETURN_ERROR(error, ...)                                                                                            \
 do                                                                                                                          \
 {                                                                                                                           \
     __typeof__(error) _error = error;                                                                                       \
     if (_error)                                                                                                             \
+    {                                                                                                                       \
+        __VA_ARGS__;                                                                                                        \
         return _error;                                                                                                      \
+    }                                                                                                                       \
 } while (0)
 
-#define RETURN_ERROR_RESULT(result, poison)                                                                                 \
+#define RETURN_ERROR_RESULT(result, poison, ...)                                                                            \
 do                                                                                                                          \
 {                                                                                                                           \
     __typeof(result) _result = result;                                                                                      \
     if (_result.error)                                                                                                      \
+    {                                                                                                                       \
+        __VA_ARGS__;                                                                                                        \
         return { poison, _result.error };                                                                                   \
+    }                                                                                                                       \
 } while (0)
 
 /**

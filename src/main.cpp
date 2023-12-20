@@ -24,10 +24,9 @@ int main(int argc, const char* const argv[])
         default:
             MyAssertSoft(0, ERROR_BAD_FILE);
     }
+    MyAssertSoft(expression, ERROR_NULLPTR);
 
     Tree::StartHtmlLogging();
-
-    
 
     TexFileResult texFileRes = LatexFileInit("tex");
     MyAssertSoft(!texFileRes.error, texFileRes.error);
@@ -35,10 +34,8 @@ int main(int argc, const char* const argv[])
 
     Tree tree = {};
 
-    MyAssertSoft(expression, ERROR_NULLPTR);
-
     ErrorCode error = ParseExpression(&tree, expression);
-    MyAssertSoft(!error, error);
+    MyAssertSoft(!error, error, free(expression));
     tree.Dump();
 
     #ifdef TEX_WRITE
@@ -48,7 +45,7 @@ int main(int argc, const char* const argv[])
     #endif
 
     error = Optimise(&tree, texFile);
-    MyAssertSoft(!error, error);
+    MyAssertSoft(!error, error, free(expression));
     tree.Dump();
 
     #ifdef TEX_WRITE
@@ -58,7 +55,7 @@ int main(int argc, const char* const argv[])
     #endif
 
     TreeResult treeDiff1Res = Differentiate(&tree, texFile);
-    MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error);
+    MyAssertSoft(!treeDiff1Res.error, error, free(expression));
     Tree treeDiff1 = treeDiff1Res.value;
     treeDiff1.Dump();
 
@@ -69,7 +66,7 @@ int main(int argc, const char* const argv[])
     #endif
 
     error = Optimise(&treeDiff1, texFile);
-    MyAssertSoft(!error, error);
+    MyAssertSoft(!error, error, free(expression));
     tree.Dump();
 
     Tree::EndHtmlLogging();
@@ -81,10 +78,10 @@ int main(int argc, const char* const argv[])
     #endif
 
     error = tree.Destructor();
-    MyAssertSoft(!error, error);
+    MyAssertSoft(!error, error, free(expression));
 
     error = treeDiff1.Destructor();
-    MyAssertSoft(!error, error);
+    MyAssertSoft(!error, error, free(expression));
     free(expression);
 
     #ifdef TEX_WRITE

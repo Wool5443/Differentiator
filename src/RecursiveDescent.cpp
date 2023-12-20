@@ -3,7 +3,7 @@
 #include "RecursiveDescent.hpp"
 #include "StringFunctions.hpp"
 
-#define SyntaxAssert(expression)                                        \
+#define SyntaxAssert(expression, ...)                                   \
 do                                                                      \
 {                                                                       \
     if (!(expression))                                                  \
@@ -11,11 +11,12 @@ do                                                                      \
         SetConsoleColor(stderr, COLOR_RED);                             \
         fprintf(stderr, "SYNTAX ERROR AT %s\n", CUR_CHAR_PTR);          \
         SetConsoleColor(stderr, COLOR_WHITE);                           \
+        __VA_ARGS__;                                                    \
         return ERROR_SYNTAX;                                            \
     }                                                                   \
 } while (0)
 
-#define SyntaxAssertResult(expression, poison)                          \
+#define SyntaxAssertResult(expression, poison, ...)                     \
 do                                                                      \
 {                                                                       \
     if (!(expression))                                                  \
@@ -23,6 +24,7 @@ do                                                                      \
         SetConsoleColor(stderr, COLOR_RED);                             \
         fprintf(stderr, "SYNTAX ERROR AT %s\n", CUR_CHAR_PTR);          \
         SetConsoleColor(stderr, COLOR_WHITE);                           \
+        __VA_ARGS__;                                                    \
         return { poison, ERROR_SYNTAX };                                \
     }                                                                   \
 } while (0)
@@ -80,11 +82,11 @@ TreeNodeResult _getN(const char** context)
     double val = strtof(CUR_CHAR_PTR, &endPtr);
     CUR_CHAR_PTR = endPtr;
 
+    SyntaxAssertResult(oldString != CUR_CHAR_PTR, nullptr);
+
     TreeNodeResult nodeRes = TreeNode::New({}, nullptr, nullptr);
     RETURN_ERROR_RESULT(nodeRes, nullptr);
     TreeNode* node = nodeRes.value;
-
-    SyntaxAssertResult(oldString != CUR_CHAR_PTR, nullptr);
 
     node->value.type = NUMBER_TYPE;
     node->value.value.number = val;
@@ -107,22 +109,32 @@ TreeNodeResult _getE(const char** context)
         CUR_CHAR_PTR++;
 
         TreeNodeResult valRes = _getT(context);
-        RETURN_ERROR_RESULT(valRes, nullptr);
+        RETURN_ERROR_RESULT(valRes, nullptr, result->Delete());
         TreeNode* val = valRes.value;
 
         TreeNodeResult resCopyRes = TreeNode::New(result->value, result->left, result->right);
-        RETURN_ERROR_RESULT(resCopyRes, nullptr);
+        RETURN_ERROR_RESULT(resCopyRes, nullptr, result->Delete(); val->Delete());
         TreeNode* resCopy = resCopyRes.value;
 
         result->nodeCount = 1;
 
         ErrorCode err = result->SetLeft(resCopy);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         err = result->SetRight(val);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         result->value.type = OPERATION_TYPE;
 
@@ -135,7 +147,7 @@ TreeNodeResult _getE(const char** context)
                 result->value.value.operation = SUB_OPERATION;
                 break;
             default:
-                SyntaxAssertResult(0, nullptr);
+                SyntaxAssertResult(0, nullptr, result->Delete(); val->Delete(); resCopy->Delete());
         }
     }
 
@@ -157,20 +169,32 @@ TreeNodeResult _getT(const char** context)
         CUR_CHAR_PTR++;
 
         TreeNodeResult valRes = _getD(context);
-        RETURN_ERROR_RESULT(valRes, nullptr);
+        RETURN_ERROR_RESULT(valRes, nullptr, result->Delete());
         TreeNode* val = valRes.value;
 
         TreeNodeResult resCopyRes = TreeNode::New(result->value, result->left, result->right);
-        RETURN_ERROR_RESULT(resCopyRes, nullptr);
+        RETURN_ERROR_RESULT(resCopyRes, nullptr, result->Delete(); val->Delete());
         TreeNode* resCopy = resCopyRes.value;
+
+        result->nodeCount = 1;
 
         ErrorCode err = result->SetLeft(resCopy);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         err = result->SetRight(val);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         result->value.type = OPERATION_TYPE;
 
@@ -183,7 +207,7 @@ TreeNodeResult _getT(const char** context)
                 result->value.value.operation = DIV_OPERATION;
                 break;
             default:
-                SyntaxAssertResult(0, nullptr);
+                SyntaxAssertResult(0, nullptr, result->Delete(); val->Delete(); resCopy->Delete());
         }
     }
 
@@ -201,7 +225,7 @@ TreeNodeResult _getP(const char** context)
         TreeNodeResult nodeRes = _getE(context);
         RETURN_ERROR_RESULT(nodeRes, nullptr);
 
-        SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr);
+        SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr, nodeRes.value->Delete());
         CUR_CHAR_PTR++;
 
         return nodeRes;
@@ -227,11 +251,11 @@ if (hasOneArg && strncasecmp(CUR_CHAR_PTR, string, length) == 0)        \
     RETURN_ERROR_RESULT(valRes, nullptr);                               \
     TreeNode* val = valRes.value;                                       \
                                                                         \
-    SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr);                  \
+    SyntaxAssertResult(*CUR_CHAR_PTR == ')', nullptr, val->Delete());   \
     CUR_CHAR_PTR++;                                                     \
                                                                         \
     TreeNodeResult resultRes = TreeNode::New({}, val, nullptr);         \
-    RETURN_ERROR_RESULT(resultRes, nullptr);                            \
+    RETURN_ERROR_RESULT(resultRes, nullptr, val->Delete());             \
     TreeNode* result = resultRes.value;                                 \
                                                                         \
     result->value.type = OPERATION_TYPE;                                \
@@ -270,20 +294,30 @@ TreeNodeResult _getD(const char** context)
         CUR_CHAR_PTR++;
 
         TreeNodeResult valRes = _getP(context);
-        RETURN_ERROR_RESULT(valRes, nullptr);
+        RETURN_ERROR_RESULT(valRes, nullptr, result->Delete());
         TreeNode* val = valRes.value;
 
         TreeNodeResult resCopyRes = TreeNode::New(result->value, result->left, result->right);
-        RETURN_ERROR_RESULT(resCopyRes, nullptr);
+        RETURN_ERROR_RESULT(resCopyRes, nullptr, result->Delete(), val->Delete());
         TreeNode* resCopy = resCopyRes.value;
 
         ErrorCode err = result->SetLeft(resCopy);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         err = result->SetRight(val);
         if (err)
+        {
+            result->Delete();
+            val->Delete();
+            resCopy->Delete();
             return { nullptr, err };
+        }
 
         result->value.type = OPERATION_TYPE;
 
