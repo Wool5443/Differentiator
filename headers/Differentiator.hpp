@@ -14,6 +14,4 @@ EvalResult Evaluate(Tree* tree, double var);
 
 TreeResult Differentiate(Tree* tree, FILE* texFile);
 
-ErrorCode Optimise(Tree* tree, FILE* texFile);
-
 #endif

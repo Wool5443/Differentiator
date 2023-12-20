@@ -3,6 +3,7 @@
 #include "Differentiator.hpp"
 #include "RecursiveDescent.hpp"
 #include "LatexWriter.hpp"
+#include "Optimiser.hpp"
 
 int main(int argc, const char* const argv[])
 {
