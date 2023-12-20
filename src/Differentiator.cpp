@@ -12,25 +12,30 @@ enum Direction
 
 EvalResult _recEval(TreeNode* node, double var);
 
-ErrorCode _recDiff(TreeNode* node, FILE* texFile);
-ErrorCode _diffMultiply(TreeNode* node, FILE* texFile);
-ErrorCode _diffDivide(TreeNode* node, FILE* texFile);
-ErrorCode _diffPower(TreeNode* node, FILE* texFile);
-ErrorCode _diffPowerNumber(TreeNode* node, FILE* texFile);
-ErrorCode _diffPowerVar(TreeNode* node, FILE* texFile);
-ErrorCode _diffSin(TreeNode* node, FILE* texFile);
-ErrorCode _diffCos(TreeNode* node, FILE* texFile);
-ErrorCode _diffTan(TreeNode* node, FILE* texFile);
-ErrorCode _diffArcsin(TreeNode* node, FILE* texFile);
-ErrorCode _diffArccos(TreeNode* node, FILE* texFile);
-ErrorCode _diffArctan(TreeNode* node, FILE* texFile);
-ErrorCode _diffExp(TreeNode* node, FILE* texFile);
-ErrorCode _diffLn(TreeNode* node, FILE* texFile);
+ErrorCode _recDiff(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffAddSub(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffMultiply(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffDivide(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffPower(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffPowerNumber(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffPowerVar(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffSin(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffCos(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffTan(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffArcsin(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffArccos(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffArctan(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffExp(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _diffLn(TreeNode* node, TreeNode* oldNode, FILE* texFile);
 
 ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
 ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
 ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr);
 ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirection);
+
+ErrorCode _writeNeedToFindDerivative(TreeNode* node, FILE* texFile);
+ErrorCode _writeFoundDerivative(TreeNode* node, TreeNode* oldNode, FILE* texFile);
+ErrorCode _writeOptimiseStart(TreeNode* node, FILE*texFile);
 
 EvalResult Evaluate(Tree* tree, double var)
 {
@@ -104,28 +109,44 @@ EvalResult _recEval(TreeNode* node, double var)
     }
 }
 
-ErrorCode Differentiate(Tree* tree, FILE* texFile)
+TreeResult Differentiate(Tree* tree, FILE* texFile)
 {
-    MyAssertSoft(tree, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-    ERR_DUMP_RET(tree);
+    MyAssertSoftResult(tree, {}, ERROR_NULLPTR);
+    ERR_DUMP_RET_RESULT(tree, {});
 
-    return _recDiff(tree->root, texFile);
+    TreeNodeResult newTreeRootRes = tree->root->Copy();
+    RETURN_ERROR_RESULT(newTreeRootRes, {});
+
+    Tree newTree = {};
+    ErrorCode error = newTree.Init(newTreeRootRes.value);
+
+    if (error)
+        return { {}, error };
+
+    error = _recDiff(newTree.root, tree->root, texFile);
+
+    if (error)
+        return { {}, error };
+    return { newTree, EVERYTHING_FINE };
 }
 
-ErrorCode _recDiff(TreeNode* node, FILE* texFile)
+ErrorCode _recDiff(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     switch (NODE_TYPE(node))
     {
         case NUMBER_TYPE:
+            #ifdef TEX_WRITE
             fprintf(texFile, "Видно, что $(%lg)' = 0$\n\\newline\n", NODE_NUMBER(node));
+            #endif
             NODE_NUMBER(node) = 0;
             return EVERYTHING_FINE;
         case VARIABLE_TYPE:
+            #ifdef TEX_WRITE
             fprintf(texFile, "Видно, что $(%c)' = 1$\n\\newline\n", NODE_VAR(node));
+            #endif
             NODE_TYPE(node) = NUMBER_TYPE;
             NODE_NUMBER(node) = 1;
             return EVERYTHING_FINE;
@@ -150,12 +171,35 @@ ErrorCode _recDiff(TreeNode* node, FILE* texFile)
             return ERROR_BAD_VALUE;
     }
 }
-
-// (uv)' = u'v + uv'
-ErrorCode _diffMultiply(TreeNode* node, FILE* texFile)
+// (u +- v)' = u' +- v''
+ErrorCode _diffAddSub(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+
+    if (!node->left || !node->right)
+        return ERROR_BAD_TREE;
+
+    RETURN_ERROR(_writeNeedToFindDerivative(node->left, texFile));
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
+
+    RETURN_ERROR(_writeNeedToFindDerivative(node->right, texFile));
+    RETURN_ERROR(_recDiff(node->right, oldNode->right, texFile));
+    
+    RETURN_ERROR(node->SetLeft(node->left));
+    RETURN_ERROR(node->SetRight(node->right));
+
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
+
+    return oldNode->Delete();
+}
+
+
+// (uv)' = u'v + uv'
+ErrorCode _diffMultiply(TreeNode* node, TreeNode* oldNode, FILE* texFile)
+{
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -163,15 +207,11 @@ ErrorCode _diffMultiply(TreeNode* node, FILE* texFile)
     COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left,  texFile));
+    RETURN_ERROR(_writeNeedToFindDerivative(node->left, texFile));
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->right, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->right, texFile));
+    RETURN_ERROR(_writeNeedToFindDerivative(node->right, texFile));
+    RETURN_ERROR(_recDiff(node->right, oldNode->right, texFile));
 
     // u'v
     CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
@@ -184,19 +224,16 @@ ErrorCode _diffMultiply(TreeNode* node, FILE* texFile)
 
     NODE_OPERATION(node) = ADD_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (u / v)' = (u'v - uv') / (v ^ 2)
-ErrorCode _diffDivide(TreeNode* node, FILE* texFile)
+ErrorCode _diffDivide(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -204,15 +241,11 @@ ErrorCode _diffDivide(TreeNode* node, FILE* texFile)
     COPY_NODE(u, node->left);
     COPY_NODE(v, node->right);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left,  texFile));
+    RETURN_ERROR(_writeNeedToFindDerivative(node->left, texFile));
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->right, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->right, texFile));
+    RETURN_ERROR(_writeNeedToFindDerivative(node->right, texFile));
+    RETURN_ERROR(_recDiff(node->right, oldNode->right, texFile));
 
     // u'v
     CREATE_OPERATION(duv, MUL_OPERATION, node->left, v);
@@ -234,18 +267,15 @@ ErrorCode _diffDivide(TreeNode* node, FILE* texFile)
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
-ErrorCode _diffPower(TreeNode* node, FILE* texFile)
+ErrorCode _diffPower(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
@@ -253,10 +283,10 @@ ErrorCode _diffPower(TreeNode* node, FILE* texFile)
     switch (NODE_TYPE(node->right))
     {
         case NUMBER_TYPE:
-            return _diffPowerNumber(node, texFile);
+            return _diffPowerNumber(node, oldNode, texFile);
         case VARIABLE_TYPE:
         case OPERATION_TYPE:
-            return _diffPowerVar(node, texFile);
+            return _diffPowerVar(node, oldNode, texFile);
         default:
             return ERROR_SYNTAX;
     }
@@ -265,20 +295,18 @@ ErrorCode _diffPower(TreeNode* node, FILE* texFile)
 }
 
 // (u ^ a)' = a * u ^ (a - 1) * u'
-ErrorCode _diffPowerNumber(TreeNode* node, FILE* texFile)
+ErrorCode _diffPowerNumber(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left,  texFile));
+    RETURN_ERROR(_writeNeedToFindDerivative(node->left, texFile));
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     // (a - 1)
     CREATE_NUMBER(aMinusOne, node->right->value.value.number - 1);
@@ -293,20 +321,17 @@ ErrorCode _diffPowerNumber(TreeNode* node, FILE* texFile)
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (u ^ v)' = (e ^ (v * lnu))' = u ^ v * (v * lnu)'
-ErrorCode _diffPowerVar(TreeNode* node, FILE* texFile)
+ErrorCode _diffPowerVar(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     CREATE_NODE(uPowV, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
@@ -316,39 +341,34 @@ ErrorCode _diffPowerVar(TreeNode* node, FILE* texFile)
 
     CREATE_OPERATION(vlnu, MUL_OPERATION, v, lnu);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(vlnu, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(vlnu, texFile));
+    COPY_NODE(vlnuOld, vlnu);
+
+    RETURN_ERROR(_writeNeedToFindDerivative(vlnu, texFile));
+    RETURN_ERROR(_recDiff(vlnu, vlnuOld, texFile));
 
     RETURN_ERROR(node->SetLeft(uPowV));
     RETURN_ERROR(node->SetRight(vlnu));
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (sinu)' = u' * cosu
-ErrorCode _diffSin(TreeNode* node, FILE* texFile)
+ErrorCode _diffSin(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
@@ -356,29 +376,24 @@ ErrorCode _diffSin(TreeNode* node, FILE* texFile)
 
     RETURN_ERROR(node->SetRight(cosu));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (cosu)' = u' * (-1 * sinu)
-ErrorCode _diffCos(TreeNode* node, FILE* texFile)
+ErrorCode _diffCos(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     CREATE_OPERATION(sinu, SIN_OPERATION, u, nullptr);
 
@@ -390,29 +405,24 @@ ErrorCode _diffCos(TreeNode* node, FILE* texFile)
 
     RETURN_ERROR(node->SetRight(minusSinu));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (tanu)' = u' / (cosu)^2
-ErrorCode _diffTan(TreeNode* node, FILE* texFile)
+ErrorCode _diffTan(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
 
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
@@ -424,26 +434,21 @@ ErrorCode _diffTan(TreeNode* node, FILE* texFile)
 
     RETURN_ERROR(node->SetRight(cosuSqr));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (arcsinu)' = u' / ((1 - u ^ 2) ^ 0.5)
-ErrorCode _diffArcsin(TreeNode* node, FILE* texFile)
+ErrorCode _diffArcsin(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     CREATE_NUMBER(two, 2);
     CREATE_NUMBER(zeroFive, 0.5);
@@ -457,20 +462,18 @@ ErrorCode _diffArcsin(TreeNode* node, FILE* texFile)
 
     RETURN_ERROR(node->SetRight(oneSubUSqrSqrt));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (arccosu)' = -(arcsinu)'
-ErrorCode _diffArccos(TreeNode* node, FILE* texFile)
+ErrorCode _diffArccos(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-    RETURN_ERROR(_diffArcsin(node, texFile));
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
+    RETURN_ERROR(_diffArcsin(node, oldNode, texFile));
 
     CREATE_NODE(arcsin, node->value, node->left, node->right);
     CREATE_NUMBER(neg1, -1);
@@ -480,26 +483,21 @@ ErrorCode _diffArccos(TreeNode* node, FILE* texFile)
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (arctanu)' = u' / (1 + u ^ 2)
-ErrorCode _diffArctan(TreeNode* node, FILE* texFile)
+ErrorCode _diffArctan(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     CREATE_NUMBER(one, 1);
     CREATE_NUMBER(two, 2);
@@ -511,66 +509,53 @@ ErrorCode _diffArctan(TreeNode* node, FILE* texFile)
 
     RETURN_ERROR(node->SetRight(onePlusuSqr));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (e ^ u)' = e ^ u * u'
-ErrorCode _diffExp(TreeNode* node, FILE* texFile)
+ErrorCode _diffExp(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     CREATE_NODE(expu, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(u, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(u, oldNode, texFile));
 
     RETURN_ERROR(node->SetLeft(expu));
     RETURN_ERROR(node->SetRight(u));
 
     NODE_OPERATION(node) = MUL_OPERATION;
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
 
 // (lnu)' = u' / u
-ErrorCode _diffLn(TreeNode* node, FILE* texFile)
+ErrorCode _diffLn(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 
     COPY_NODE(u, node->left);
 
-    fprintf(texFile, "Необходимо найти $(");
-    LatexWrite(node->left, texFile);
-    fprintf(texFile, ")'$\n\\newline\n");
-    RETURN_ERROR(_recDiff(node->left, texFile));
+    _writeNeedToFindDerivative(node->left, texFile);
+    RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     NODE_OPERATION(node) = DIV_OPERATION;
 
     RETURN_ERROR(node->SetRight(u));
 
-    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
-    fprintf(texFile, "\\[");
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
     return EVERYTHING_FINE;
 }
@@ -578,8 +563,7 @@ ErrorCode _diffLn(TreeNode* node, FILE* texFile)
 ErrorCode Optimise(Tree* tree, FILE* texFile)
 {
     MyAssertSoft(tree, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
-
+    
     bool keepOptimising = true;
 
     while (keepOptimising)
@@ -591,7 +575,7 @@ ErrorCode Optimise(Tree* tree, FILE* texFile)
 ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     *keepOptimizingPtr = false;
@@ -624,7 +608,7 @@ ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     if (!node->right)
@@ -633,54 +617,38 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
     RETURN_ERROR(_recOptimise(node->left, texFile, keepOptimizingPtr));
     RETURN_ERROR(_recOptimise(node->right, texFile, keepOptimizingPtr));
 
+
     if (NODE_TYPE(node->left) == NUMBER_TYPE && NODE_TYPE(node->right) == NUMBER_TYPE)
     {
         *keepOptimizingPtr = true;
         NODE_TYPE(node) = NUMBER_TYPE;
 
-        switch (NODE_OPERATION(node))
+        if (ADD_OPERATION <= NODE_OPERATION(node) && NODE_OPERATION(node) <= POWER_OPERATION)
         {
-            case ADD_OPERATION:
-                fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-                RETURN_ERROR(LatexWrite(node, texFile));
-                fprintf(texFile, "=");
-
-                NODE_NUMBER(node) = NODE_NUMBER(node->left) + NODE_NUMBER(node->right);
-                break;
-            case SUB_OPERATION:
-                fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-                RETURN_ERROR(LatexWrite(node, texFile));
-                fprintf(texFile, "=");
-
-                NODE_NUMBER(node) = NODE_NUMBER(node->left) - NODE_NUMBER(node->right);
-                break;
-            case MUL_OPERATION:
-                fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-                RETURN_ERROR(LatexWrite(node, texFile));
-                fprintf(texFile, "=");
-
-                NODE_NUMBER(node) = NODE_NUMBER(node->left) * NODE_NUMBER(node->right);
-                break;
-            case DIV_OPERATION:
-                fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-                RETURN_ERROR(LatexWrite(node, texFile));
-                fprintf(texFile, "=");
-
-                if (NODE_NUMBER(node->right) == 0)
-                    return ERROR_ZERO_DIVISION;
-                NODE_NUMBER(node) = NODE_NUMBER(node->left) / NODE_NUMBER(node->right);
-                break;
-            case POWER_OPERATION:
-                fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-                RETURN_ERROR(LatexWrite(node, texFile));
-                fprintf(texFile, "=");
-
-                NODE_NUMBER(node) = pow(NODE_NUMBER(node->left), NODE_NUMBER(node->right));
-                break;
-            default:
-                return EVERYTHING_FINE;
+            RETURN_ERROR(_writeOptimiseStart(node, texFile));
+            switch (NODE_OPERATION(node))
+            {
+                case ADD_OPERATION:
+                    NODE_NUMBER(node) = NODE_NUMBER(node->left) + NODE_NUMBER(node->right);
+                    break;
+                case SUB_OPERATION:
+                    NODE_NUMBER(node) = NODE_NUMBER(node->left) - NODE_NUMBER(node->right);
+                    break;
+                case MUL_OPERATION:
+                    NODE_NUMBER(node) = NODE_NUMBER(node->left) * NODE_NUMBER(node->right);
+                    break;
+                case DIV_OPERATION:
+                    if (NODE_NUMBER(node->right) == 0)
+                        return ERROR_ZERO_DIVISION;
+                    NODE_NUMBER(node) = NODE_NUMBER(node->left) / NODE_NUMBER(node->right);
+                    break;
+                case POWER_OPERATION:
+                    NODE_NUMBER(node) = pow(NODE_NUMBER(node->left), NODE_NUMBER(node->right));
+                    break;
+                default:
+                    return EVERYTHING_FINE;
+            }
         }
-
         RETURN_ERROR(node->left->Delete());
         RETURN_ERROR(node->right->Delete());
 
@@ -696,7 +664,7 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
 ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    MyAssertSoft(texFile, ERROR_BAD_FILE);
+    
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     if (!node->right)
@@ -705,46 +673,44 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
     RETURN_ERROR(_recOptimise(node->left, texFile, keepOptimizingPtr));
     RETURN_ERROR(_recOptimise(node->right, texFile, keepOptimizingPtr));
 
+    bool optimised = false;
+
     switch (NODE_OPERATION(node))
     {
         case ADD_OPERATION:
-            fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-            RETURN_ERROR(LatexWrite(node, texFile));
-            fprintf(texFile, "=");
-
             if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, LEFT));
                 break;
             }
             else if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
                 break;
             }
             break;
         case SUB_OPERATION:
-            fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-            RETURN_ERROR(LatexWrite(node, texFile));
-            fprintf(texFile, "=");
-
             if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
                 break;
             }
             break;
         case MUL_OPERATION:
-            fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-            RETURN_ERROR(LatexWrite(node, texFile));
-            fprintf(texFile, "=");
-
             if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0) ||
                 NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 if (node->left)
                     RETURN_ERROR(node->left->Delete());
@@ -757,24 +723,26 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             }
             else if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, LEFT));
                 break;
             }
             else if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
                 break;
             }
             break;
         case DIV_OPERATION:
-            fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-            RETURN_ERROR(LatexWrite(node, texFile));
-            fprintf(texFile, "=");
-
             if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 if (node->left)
                     RETURN_ERROR(node->left->Delete());
@@ -787,18 +755,18 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             }
             else if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
                 break;
             }
             break;
         case POWER_OPERATION:
-            fprintf(texFile, "%s\n\\[", GetRandomMathComment());
-            RETURN_ERROR(LatexWrite(node, texFile));
-            fprintf(texFile, "=");
-
             if (NODE_TYPE(node->left) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 if (node->left)
                     RETURN_ERROR(node->left->Delete());
@@ -812,6 +780,8 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             else if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1) ||
                 NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 if (node->left)
                     RETURN_ERROR(node->left->Delete());
@@ -824,6 +794,8 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             }
             if (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 1))
             {
+                optimised = true;
+                RETURN_ERROR(_writeOptimiseStart(node, texFile));
                 *keepOptimizingPtr = true;
                 RETURN_ERROR(_deleteUnnededAndReplace(node, RIGHT));
                 break;
@@ -833,8 +805,11 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             return EVERYTHING_FINE;
     }
 
-    RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, "\\]\n");
+    if (optimised)
+    {
+        RETURN_ERROR(LatexWrite(node, texFile));
+        fprintf(texFile, "\\]\n");
+    }
 
     return EVERYTHING_FINE;
 }
@@ -871,6 +846,52 @@ ErrorCode _deleteUnnededAndReplace(TreeNode* toReplace, Direction deleteDirectio
     newNode->id        = BAD_ID;
 
     free(newNode);
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _writeNeedToFindDerivative(TreeNode* node, FILE* texFile)
+{
+    #ifdef TEX_WRITE
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
+
+    fprintf(texFile, "Необходимо найти $(");
+    LatexWrite(node, texFile);
+    fprintf(texFile, ")'$\n\\newline\n");
+    #endif
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _writeFoundDerivative(TreeNode* node, TreeNode* oldNode, FILE* texFile)
+{
+    #ifdef TEX_WRITE
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(oldNode, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
+
+    fprintf(texFile, "%s\n\\newline\n", GetRandomMathComment());
+    fprintf(texFile, "\\[(");
+    RETURN_ERROR(LatexWrite(oldNode, texFile));
+    fprintf(texFile, ")' = ");
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "\\]\n");
+    #endif
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _writeOptimiseStart(TreeNode* node, FILE* texFile)
+{
+    #ifdef TEX_WRITE
+    MyAssertSoft(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
+
+    fprintf(texFile, "%s\n\\[", GetRandomMathComment());
+    RETURN_ERROR(LatexWrite(node, texFile));
+    fprintf(texFile, "=");
+    #endif
 
     return EVERYTHING_FINE;
 }

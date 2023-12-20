@@ -24,39 +24,55 @@ int main(int argc, const char* const argv[])
     MyAssertSoft(!error, error);
     tree.Dump();
 
+    #ifdef TEX_WRITE
     fprintf(texFile, "Упростим\n\\[");
     RETURN_ERROR(LatexWrite(tree.root, texFile));
     fprintf(texFile, "\\]\n");
+    #endif
 
     error = Optimise(&tree, texFile);
     MyAssertSoft(!error, error);
     tree.Dump();
 
+    #ifdef TEX_WRITE
     fprintf(texFile, "Найдем производную\n\\[");
     RETURN_ERROR(LatexWrite(tree.root, texFile));
     fprintf(texFile, "\\]\n");
+    #endif
 
-    error = Differentiate(&tree, texFile);
-    MyAssertSoft(!error, error);
-    tree.Dump();
+    TreeResult treeDiff1Res = Differentiate(&tree, texFile);
+    MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error);
+    Tree treeDiff1 = treeDiff1Res.value;
+    treeDiff1.Dump();
 
+    #ifdef TEX_WRITE
     fprintf(texFile, "Упростим\n\\[");
-    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    RETURN_ERROR(LatexWrite(treeDiff1.root, texFile));
     fprintf(texFile, "\\]\n");
+    #endif
 
-    error = Optimise(&tree, texFile);
+    error = Optimise(&treeDiff1, texFile);
     MyAssertSoft(!error, error);
     tree.Dump();
 
     Tree::EndHtmlLogging();
 
+    #ifdef TEX_WRITE
     fprintf(texFile, "В итоге имеем\n\\newline\n\\[");
-    RETURN_ERROR(LatexWrite(tree.root, texFile));
+    RETURN_ERROR(LatexWrite(treeDiff1.root, texFile));
     fprintf(texFile, "\\]\n");
+    #endif
 
     error = tree.Destructor();
     MyAssertSoft(!error, error);
+
+    error = treeDiff1.Destructor();
+    MyAssertSoft(!error, error);
     free(expression);
 
+    #ifdef TEX_WRITE
     return LatexFileEnd(texFile, "tex");
+    #endif
+
+    return 0;
 }

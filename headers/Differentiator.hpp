@@ -12,7 +12,7 @@ struct EvalResult
 
 EvalResult Evaluate(Tree* tree, double var);
 
-ErrorCode Differentiate(Tree* tree, FILE* texFile);
+TreeResult Differentiate(Tree* tree, FILE* texFile);
 
 ErrorCode Optimise(Tree* tree, FILE* texFile);
 

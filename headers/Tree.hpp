@@ -161,4 +161,16 @@ struct Tree
     static ErrorCode EndHtmlLogging();
 };
 
+/** @struct TreeResult
+ * @brief Used as a tree result.
+ * 
+ * @var TreeResult::value - tree
+ * @var TreeResult::error
+ */
+struct TreeResult
+{
+    Tree value;
+    ErrorCode error;
+};
+
 #endif

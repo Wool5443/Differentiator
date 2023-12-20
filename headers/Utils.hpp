@@ -60,8 +60,9 @@ do                                                                              
 #define RETURN_ERROR_RESULT(result, poison)                                                                                 \
 do                                                                                                                          \
 {                                                                                                                           \
-    if (result.error)                                                                                                       \
-        return { poison, result.error };                                                                                      \
+    __typeof(result) _result = result;                                                                                      \
+    if (_result.error)                                                                                                      \
+        return { poison, _result.error };                                                                                   \
 } while (0)
 
 /**
