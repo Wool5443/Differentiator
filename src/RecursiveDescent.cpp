@@ -240,7 +240,7 @@ TreeNodeResult _getId(const char** context)
 {
     MyAssertSoftResult(context, nullptr, ERROR_NULLPTR);
 
-#define DEF_FUNC(name, hasOneArg, string, length, ...)                  \
+#define DEF_FUNC(name, priority, hasOneArg, string, length, ...)        \
 if (hasOneArg && strncasecmp(CUR_CHAR_PTR, string, length) == 0)        \
 {                                                                       \
     CUR_CHAR_PTR += length;                                             \

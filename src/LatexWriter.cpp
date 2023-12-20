@@ -29,6 +29,8 @@ ErrorCode _recTexWriteOperation(TreeNode* node, FILE* texFile);
 
 ErrorCode _recTexWriteFunction(TreeNode* node, FILE* texFile, bool hasOneArg, const char* funcName);
 
+ErrorCode _printSubExpression(TreeNode* node, int priority, FILE* texFile);
+
 TexFileResult LatexFileInit(const char* texFolder)
 {
     MyAssertSoftResult(texFolder, nullptr, ERROR_NULLPTR);
@@ -106,7 +108,7 @@ ErrorCode _recTexWriteOperation(TreeNode* node, FILE* texFile)
     switch (NODE_OPERATION(node))
     {
 
-#define DEF_FUNC(name, hasOneArg, string, ...)                          \
+#define DEF_FUNC(name, priority, hasOneArg, string, ...)                \
 case name:                                                              \
     return _recTexWriteFunction(node, texFile, hasOneArg, string);
 
@@ -143,19 +145,25 @@ ErrorCode _recTexWriteFunction(TreeNode* node, FILE* texFile, bool hasOneArg, co
         {
             case ADD_OPERATION:
             case SUB_OPERATION:
-            case POWER_OPERATION:
-                fprintf(texFile, "(");
                 RETURN_ERROR(_recTexWrite(node->left, texFile));
                 fprintf(texFile, "%s", funcName);
                 RETURN_ERROR(_recTexWrite(node->right, texFile));
-                fprintf(texFile, ")");
+                break;
+            case POWER_OPERATION:
+                _printSubExpression(node->left, POWER_OPERATION_PRIORITY, texFile);
+
+                fprintf(texFile, "%s", funcName);
+
+                _printSubExpression(node->right, POWER_OPERATION_PRIORITY, texFile);
+
                 break;
             case MUL_OPERATION:
-                fprintf(texFile, "(");
-                RETURN_ERROR(_recTexWrite(node->left, texFile));
+                _printSubExpression(node->left, MUL_OPERATION_PRIORITY, texFile);
+
                 fprintf(texFile, "\\cdot");
-                RETURN_ERROR(_recTexWrite(node->right, texFile));
-                fprintf(texFile, ")");
+
+                _printSubExpression(node->right, MUL_OPERATION_PRIORITY, texFile);
+
                 break;
             case DIV_OPERATION:
                 fprintf(texFile, "\\frac{");
@@ -167,8 +175,27 @@ ErrorCode _recTexWriteFunction(TreeNode* node, FILE* texFile, bool hasOneArg, co
             default:
                 return ERROR_BAD_VALUE;
         }
-
     }
+
+    return EVERYTHING_FINE;
+}
+
+ErrorCode _printSubExpression(TreeNode* node, int priority, FILE* texFile)
+{
+    MyAssertHard(node, ERROR_NULLPTR);
+    MyAssertSoft(texFile, ERROR_BAD_FILE);
+
+    if (NODE_TYPE(node) == OPERATION_TYPE && NODE_OPERATION(node) == COS_OPERATION)
+        printf("Node type: %d\nNode_priority: %d\nPriority: %d\n\n---------\n", NODE_TYPE(node), node->value.priority, priority);
+
+    if (NODE_TYPE(node) == OPERATION_TYPE && node->value.priority < priority)
+    {
+        fprintf(texFile, "(");
+        RETURN_ERROR(_recTexWrite(node, texFile));
+        fprintf(texFile, ")");
+    }
+    else
+        RETURN_ERROR(_recTexWrite(node, texFile));
 
     return EVERYTHING_FINE;
 }

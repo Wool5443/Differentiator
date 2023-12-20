@@ -139,13 +139,13 @@ ErrorCode _recDiff(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     {
         case NUMBER_TYPE:
             #ifdef TEX_WRITE
-            fprintf(texFile, "Видно, что $(%lg)' = 0$\n\\newline\n", NODE_NUMBER(node));
+            fprintf(texFile, "Видно, что $%lg' = 0$\n\\newline\n", NODE_NUMBER(node));
             #endif
             NODE_NUMBER(node) = 0;
             return EVERYTHING_FINE;
         case VARIABLE_TYPE:
             #ifdef TEX_WRITE
-            fprintf(texFile, "Видно, что $(%c)' = 1$\n\\newline\n", NODE_VAR(node));
+            fprintf(texFile, "Видно, что $%c' = 1$\n\\newline\n", NODE_VAR(node));
             #endif
             NODE_TYPE(node) = NUMBER_TYPE;
             NODE_NUMBER(node) = 1;
@@ -155,7 +155,7 @@ ErrorCode _recDiff(TreeNode* node, TreeNode* oldNode, FILE* texFile)
             switch (NODE_OPERATION(node))
             {
 
-                #define DEF_FUNC(name, hasOneArg, string, length, code, ...)            \
+                #define DEF_FUNC(name, priority, hasOneArg, string, length, code, ...)  \
                 case name:                                                              \
                 code;
 
@@ -223,6 +223,7 @@ ErrorCode _diffMultiply(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(udv));
 
     NODE_OPERATION(node) = ADD_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -266,6 +267,7 @@ ErrorCode _diffDivide(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(vSquared));
 
     NODE_OPERATION(node) = DIV_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -320,6 +322,7 @@ ErrorCode _diffPowerNumber(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(aMulUPowMinusOne));
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -352,6 +355,7 @@ ErrorCode _diffPowerVar(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(vlnu));
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -375,6 +379,7 @@ ErrorCode _diffSin(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     CREATE_OPERATION(cosu, COS_OPERATION, u, nullptr);
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(cosu));
 
@@ -404,6 +409,7 @@ ErrorCode _diffCos(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     CREATE_OPERATION(minusSinu, MUL_OPERATION, neg1, sinu);
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(minusSinu));
 
@@ -433,6 +439,7 @@ ErrorCode _diffTan(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     CREATE_OPERATION(cosuSqr, POWER_OPERATION, cosu, two);
 
     NODE_OPERATION(node) = DIV_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(cosuSqr));
 
@@ -461,6 +468,7 @@ ErrorCode _diffArcsin(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     CREATE_OPERATION(oneSubUSqrSqrt, POWER_OPERATION, oneSubUSqr, zeroFive);
 
     NODE_OPERATION(node) = DIV_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(oneSubUSqrSqrt));
 
@@ -484,6 +492,7 @@ ErrorCode _diffArccos(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(arcsin));
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -508,6 +517,7 @@ ErrorCode _diffArctan(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     CREATE_OPERATION(onePlusuSqr, ADD_OPERATION, one, uSqr);
 
     NODE_OPERATION(node) = DIV_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(onePlusuSqr));
 
@@ -533,6 +543,7 @@ ErrorCode _diffExp(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(node->SetRight(u));
 
     NODE_OPERATION(node) = MUL_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(_writeFoundDerivative(node, oldNode, texFile));
 
@@ -554,6 +565,7 @@ ErrorCode _diffLn(TreeNode* node, TreeNode* oldNode, FILE* texFile)
     RETURN_ERROR(_recDiff(node->left, oldNode->left, texFile));
 
     NODE_OPERATION(node) = DIV_OPERATION;
+    UPDATE_PRIORITY(node);
 
     RETURN_ERROR(node->SetRight(u));
 
@@ -568,9 +580,15 @@ ErrorCode _writeNeedToFindDerivative(TreeNode* node, FILE* texFile)
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(texFile, ERROR_BAD_FILE);
 
-    fprintf(texFile, "Необходимо найти $(");
+    fprintf(texFile, "Необходимо найти $");
+    if (NODE_TYPE(node) == OPERATION_TYPE)
+        fprintf(texFile, "(");
+
     RETURN_ERROR(LatexWrite(node, texFile));
-    fprintf(texFile, ")'$\n\\newline\n");
+
+    if (NODE_TYPE(node) == OPERATION_TYPE)
+        fprintf(texFile, ")");
+    fprintf(texFile, "'$\n\\newline\n");
     #endif
 
     return EVERYTHING_FINE;

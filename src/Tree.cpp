@@ -43,9 +43,9 @@ void PrintTreeElement(FILE* file, TreeElement* treeEl)
         switch (treeEl->value.operation)
         {
 
-#define DEF_FUNC(name, hasOneArg, string, ...)      \
-case name:                                          \
-    fprintf(file, "op: %s", string);                \
+#define DEF_FUNC(name, priority, hasOneArg, string, ...)      \
+case name:                                                    \
+    fprintf(file, "op: %s", string);                          \
     break;
 
 #include "DiffFunctions.hpp"
@@ -105,6 +105,24 @@ TreeNodeResult TreeNode::New(TreeElement_t value, TreeNode* left, TreeNode* righ
     node->parent = nullptr;
 
     node->id = CURRENT_ID++;
+
+    if (NODE_TYPE(node) == OPERATION_TYPE)
+    {
+        switch (NODE_OPERATION(node))
+        {
+            #define DEF_FUNC(name, prior, ...)  \
+            case name:                          \
+                node->value.priority = prior;   \
+                break;
+            
+            #include "DiffFunctions.hpp"
+
+            #undef DEF_FUNC
+
+            default:
+                return { nullptr, ERROR_BAD_VALUE };
+        }
+    }
 
     return { node, EVERYTHING_FINE };
 }

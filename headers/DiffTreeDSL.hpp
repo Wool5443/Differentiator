@@ -61,11 +61,35 @@ do                                                                      \
     name = _tempNode.value;                                             \
     name->value.type = OPERATION_TYPE;                                  \
     name->value.value.operation = op;                                   \
+    UPDATE_PRIORITY(name);                                              \
 } while (0)
 
 #define NODE_TYPE(node) ((node)->value.type)
 #define NODE_NUMBER(node) ((node)->value.value.number)
-#define NODE_OPERATION(node) ((node)->value.value.operation)
 #define NODE_VAR(node) ((node)->value.value.var)
+#define NODE_OPERATION(node) ((node)->value.value.operation)
+#define NODE_PRIORITY(node) ((node)->value.priority)
+
+#define UPDATE_PRIORITY(node)                                           \
+do                                                                      \
+{                                                                       \
+    switch (NODE_OPERATION(node))                                       \
+    {                                                                   \
+        case ADD_OPERATION:                                             \
+        case SUB_OPERATION:                                             \
+            NODE_PRIORITY(node) = 0;                                    \
+            break;                                                      \
+        case MUL_OPERATION:                                             \
+        case DIV_OPERATION:                                             \
+            NODE_PRIORITY(node) = 1;                                    \
+                break;                                                  \
+        case POWER_OPERATION:                                           \
+            NODE_PRIORITY(node) = 2;                                    \
+                break;                                                  \
+        default:                                                        \
+            NODE_PRIORITY(node) = 3;                                    \
+            break;                                                      \
+    }                                                                   \
+} while (0)
 
 #endif
