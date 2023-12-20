@@ -25,7 +25,7 @@ int main(int argc, const char* const argv[])
     tree.Dump();
 
     #ifdef TEX_WRITE
-    fprintf(texFile, "Упростим\n\\[");
+    fprintf(texFile, "Упростим\n\\newline\n\\[");
     RETURN_ERROR(LatexWrite(tree.root, texFile));
     fprintf(texFile, "\\]\n");
     #endif
@@ -35,7 +35,7 @@ int main(int argc, const char* const argv[])
     tree.Dump();
 
     #ifdef TEX_WRITE
-    fprintf(texFile, "Найдем производную\n\\[");
+    fprintf(texFile, "Найдем производную\n\\newline\n\\[");
     RETURN_ERROR(LatexWrite(tree.root, texFile));
     fprintf(texFile, "\\]\n");
     #endif
@@ -46,7 +46,7 @@ int main(int argc, const char* const argv[])
     treeDiff1.Dump();
 
     #ifdef TEX_WRITE
-    fprintf(texFile, "Упростим\n\\[");
+    fprintf(texFile, "Упростим\n\\newline\n\\[");
     RETURN_ERROR(LatexWrite(treeDiff1.root, texFile));
     fprintf(texFile, "\\]\n");
     #endif

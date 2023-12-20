@@ -18,7 +18,9 @@ static const char PREAMBLE[] =
 "\\usepackage{wrapfig}\n"
 "\\usepackage{graphicx}\n"
 "\\usepackage{titlesec}\n"
-"\\begin{document}\n";
+"\\setlength{\\parindent}{0pt}\n"
+"\\begin{document}\n"
+"\\begin{center}\n";
 static const size_t PREAMBLE_SIZE = sizeof(PREAMBLE) / sizeof(*PREAMBLE);
 
 ErrorCode _recTexWrite(TreeNode* node, FILE* texFile);
@@ -48,7 +50,7 @@ ErrorCode LatexFileEnd(FILE* texFile, const char* texFolder)
 {
     MyAssertSoft(texFile, ERROR_NULLPTR);
 
-    fprintf(texFile, "\\end{document}\n");
+    fprintf(texFile, "\\end{center}\n\\end{document}\n");
     fclose(texFile);
 
     char command[MAX_COMMAND_LENGTH] = "";
