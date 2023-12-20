@@ -42,30 +42,30 @@ int main(int argc, const char* const argv[])
 
     // OPTIMISE BEFOR DIFF
     error = Optimise(&tree, texFile);
-    MyAssertSoft(!error, error, free(expression));
+    MyAssertSoft(!error, error, free(expression); tree.Destructor());
     tree.Dump();
 
     // DIFF
     TreeResult treeDiff1Res = Differentiate(&tree, texFile);
-    MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error, free(expression));
+    MyAssertSoft(!treeDiff1Res.error, treeDiff1Res.error, free(expression); tree.Destructor());
     Tree treeDiff1 = treeDiff1Res.value;
     treeDiff1.Dump();
 
     // OPTIMISE AFTER DIFF
     error = Optimise(&treeDiff1, texFile);
-    MyAssertSoft(!error, error, free(expression));
+    MyAssertSoft(!error, error, free(expression); tree.Destructor(); treeDiff1.Destructor());
     treeDiff1.Dump();
 
     Tree::EndHtmlLogging();
 
     #ifdef TEX_WRITE
     fprintf(texFile, "В итоге имеем\n\\newline\n\\[");
-    RETURN_ERROR(LatexWrite(treeDiff1.root, texFile));
+    RETURN_ERROR(LatexWrite(treeDiff1.root, texFile), free(expression); tree.Destructor(); treeDiff1.Destructor());
     fprintf(texFile, "\\]\n");
     #endif
 
     error = tree.Destructor();
-    MyAssertSoft(!error, error, free(expression));
+    MyAssertSoft(!error, error, free(expression), free(expression); treeDiff1.Destructor());
 
     error = treeDiff1.Destructor();
     MyAssertSoft(!error, error, free(expression));
