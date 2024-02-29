@@ -63,7 +63,7 @@ do                                                                              
 #define RETURN_ERROR_RESULT(result, poison, ...)                                                                            \
 do                                                                                                                          \
 {                                                                                                                           \
-    __typeof(result) _result = result;                                                                                      \
+    __typeof__(result) _result = result;                                                                                      \
     if (_result.error)                                                                                                      \
     {                                                                                                                       \
         __VA_ARGS__;                                                                                                        \
