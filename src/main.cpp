@@ -15,6 +15,7 @@ int main(int argc, const char* const argv[])
     switch (argc)
     {
         case 1:
+            printf("Input your formula:\n");
             expression = (char*)calloc(MAX_EXPRESSION_LENGTH + 1, sizeof(*expression));
             fgets(expression, MAX_EXPRESSION_LENGTH, stdin);
             break;
