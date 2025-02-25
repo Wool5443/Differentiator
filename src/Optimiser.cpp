@@ -24,19 +24,19 @@ ErrorCode Optimise(Tree* tree, FILE* texFile)
     RETURN_ERROR(LatexWrite(tree->root, texFile));
     fprintf(texFile, "\\]\n");
     #endif
-    
+
     bool keepOptimising = true;
 
     while (keepOptimising)
         RETURN_ERROR(_recOptimise(tree->root, texFile, &keepOptimising));
-    
+
     return EVERYTHING_FINE;
 }
 
 ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    
+
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     *keepOptimizingPtr = false;
@@ -69,7 +69,7 @@ ErrorCode _recOptimise(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    
+
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     if (!node->right)
@@ -124,7 +124,7 @@ ErrorCode _recOptimizeConsts(TreeNode* node, FILE* texFile, bool* keepOptimizing
 ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizingPtr)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
-    
+
     MyAssertSoft(keepOptimizingPtr, ERROR_NULLPTR);
 
     if (!node->right)
@@ -166,8 +166,8 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
             }
             break;
         case MUL_OPERATION:
-            if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0) ||
-                NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
+            if ((NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 0)) ||
+                (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0)))
             {
                 optimised = true;
                 RETURN_ERROR(_writeOptimiseStart(node, texFile));
@@ -208,7 +208,7 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
                     RETURN_ERROR(node->left->Delete());
                 if (node->right)
                     RETURN_ERROR(node->right->Delete());
-                    
+
                 NODE_TYPE(node) = NUMBER_TYPE;
                 NODE_NUMBER(node) = 0;
                 break;
@@ -232,13 +232,13 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
                     RETURN_ERROR(node->left->Delete());
                 if (node->right)
                     RETURN_ERROR(node->right->Delete());
-                    
+
                 NODE_TYPE(node) = NUMBER_TYPE;
                 NODE_NUMBER(node) = 0;
                 break;
             }
-            else if (NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1) ||
-                NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0))
+            else if ((NODE_TYPE(node->left)  == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->left), 1)) ||
+                     (NODE_TYPE(node->right) == NUMBER_TYPE && IsEqual(NODE_NUMBER(node->right), 0)))
             {
                 optimised = true;
                 RETURN_ERROR(_writeOptimiseStart(node, texFile));
@@ -247,7 +247,7 @@ ErrorCode _recOptimizeNeutrals(TreeNode* node, FILE* texFile, bool* keepOptimizi
                     RETURN_ERROR(node->left->Delete());
                 if (node->right)
                     RETURN_ERROR(node->right->Delete());
-                    
+
                 NODE_TYPE(node) = NUMBER_TYPE;
                 NODE_NUMBER(node) = 1;
                 break;

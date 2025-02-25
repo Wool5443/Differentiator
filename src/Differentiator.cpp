@@ -42,6 +42,7 @@ EvalResult _recEval(TreeNode* node, double var)
             return { NODE_NUMBER(node), EVERYTHING_FINE };
         case VARIABLE_TYPE:
             return { var, EVERYTHING_FINE };
+        case OPERATION_TYPE:
         default:
             break;
     }
@@ -61,7 +62,6 @@ EvalResult _recEval(TreeNode* node, double var)
         RETURN_ERROR_RESULT(rightRes, NAN);
     }
 
-    double result = {};
     switch (NODE_OPERATION(node))
     {
         case ADD_OPERATION:
@@ -185,7 +185,7 @@ ErrorCode _diffAddSub(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 
     RETURN_ERROR(_writeNeedToFindDerivative(node->right, texFile));
     RETURN_ERROR(_recDiff(node->right, oldNode->right, texFile));
-    
+
     RETURN_ERROR(node->SetLeft(node->left));
     RETURN_ERROR(node->SetRight(node->right));
 
@@ -301,7 +301,7 @@ ErrorCode _diffPowerNumber(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     if (!node->left || !node->right)
         return ERROR_BAD_TREE;
 
@@ -334,7 +334,7 @@ ErrorCode _diffPowerVar(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     CREATE_NODE(uPowV, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
@@ -453,7 +453,7 @@ ErrorCode _diffArcsin(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     COPY_NODE(u, node->left);
 
     _writeNeedToFindDerivative(node->left, texFile);
@@ -482,7 +482,7 @@ ErrorCode _diffArccos(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     RETURN_ERROR(_diffArcsin(node, oldNode, texFile));
 
     CREATE_NODE(arcsin, node->value, node->left, node->right);
@@ -504,7 +504,7 @@ ErrorCode _diffArctan(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     COPY_NODE(u, node->left);
 
     _writeNeedToFindDerivative(node->left, texFile);
@@ -531,7 +531,7 @@ ErrorCode _diffExp(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     CREATE_NODE(expu, node->value, node->left, node->right);
 
     COPY_NODE(u, node->left);
@@ -555,7 +555,7 @@ ErrorCode _diffLn(TreeNode* node, TreeNode* oldNode, FILE* texFile)
 {
     MyAssertSoft(node, ERROR_NULLPTR);
     MyAssertSoft(oldNode, ERROR_NULLPTR);
-    
+
     if (!node->left || node->right)
         return ERROR_BAD_TREE;
 

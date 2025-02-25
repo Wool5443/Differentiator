@@ -114,7 +114,7 @@ TreeNodeResult TreeNode::New(TreeElement_t value, TreeNode* left, TreeNode* righ
             case name:                          \
                 node->value.priority = prior;   \
                 break;
-            
+
             #include "DiffFunctions.hpp"
 
             #undef DEF_FUNC
@@ -245,7 +245,7 @@ static TreeNodeResult _recCopy(TreeNode* node)
     MyAssertSoftResult(node, nullptr, ERROR_NULLPTR);
     if (node->id == BAD_ID)
         return { nullptr, ERROR_TREE_LOOP };
-    
+
     size_t oldId = node->id;
     node->id = BAD_ID;
 
@@ -356,7 +356,7 @@ ErrorCode Tree::Destructor()
     #ifdef SIZE_VERIFICATION
     this->size = nullptr;
     #endif
-    
+
     return EVERYTHING_FINE;
 }
 
@@ -371,7 +371,7 @@ ErrorCode Tree::Verify()
     #ifdef SIZE_VERIFICATION
     if (*this->size > MAX_TREE_SIZE)
         return ERROR_BAD_SIZE;
-    
+
     TreeNodeCountResult sizeRes = _recCountNodes(this->root);
     RETURN_ERROR(sizeRes.error);
 
@@ -482,7 +482,7 @@ ErrorCode Tree::Dump()
     MyAssertSoft(this->root, ERROR_NO_ROOT);
 
     if (HTML_FILE)
-        fprintf(HTML_FILE, 
+        fprintf(HTML_FILE,
         "<h1>Iteration %zu</h1>\n"
         "<style>\n"
         ".content {\n"
@@ -498,7 +498,7 @@ ErrorCode Tree::Dump()
     FILE* outGraphFile = fopen(outGraphPath, "w");
     MyAssertSoft(outGraphFile, ERROR_BAD_FILE);
 
-    fprintf(outGraphFile, 
+    fprintf(outGraphFile,
     "digraph\n"
     "{\n"
     "rankdir = TB;\n"
@@ -533,7 +533,7 @@ ErrorCode Tree::Dump()
         default:
             return ERROR_BAD_VALUE;
     }
-    
+
     fprintf(outGraphFile, "label = \"{Value:\\n|");
     PrintTreeElement(outGraphFile, &this->root->value);
     fprintf(outGraphFile, "|{<left>Left|<right>Right}}\"];\n");
@@ -572,8 +572,6 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
 {
     MyAssertSoft(node, ERROR_NULLPTR);
 
-    size_t nodeId = node->id;
-    
     if (curDepth > maxDepth)
         return EVERYTHING_FINE;
 
@@ -606,7 +604,7 @@ static ErrorCode _recBuildCellTemplatesGraph(TreeNode* node, FILE* outGraphFile,
     fprintf(outGraphFile, "|node count:\\n%zu", node->nodeCount);
     #endif
     fprintf(outGraphFile, "|{<left>left|<right>right}}\"];\n");
-    
+
     if (node->left)
         RETURN_ERROR(_recBuildCellTemplatesGraph(node->left,  outGraphFile, curDepth + 1, maxDepth));
     if (node->right)
@@ -647,7 +645,7 @@ ErrorCode Tree::StartHtmlLogging()
     HTML_FILE = fopen(HTML_FILE_PATH, "w");
     MyAssertSoft(HTML_FILE, ERROR_BAD_FILE);
 
-    fprintf(HTML_FILE, 
+    fprintf(HTML_FILE,
         "<style>\n"
         ".content {\n"
         "max-width: 500px;\n"

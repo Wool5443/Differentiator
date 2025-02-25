@@ -3,13 +3,13 @@
 #ifndef TREE_HPP
 #define TREE_HPP
 
-#include "TreeSettings.ini"
+#include "TreeSettings.hpp"
 #include "Utils.hpp"
 
 struct TreeNodeResult;
 /** @struct TreeNode
  * @brief A binary tree node containing value and ptrs to children
- * 
+ *
  * @var TreeNode::value - TreeElemen_t value
  * @var TreeNode::left - TreeNode* left
  * @var TreeNode::right - TreeNode* right
@@ -35,7 +35,7 @@ struct TreeNode
 
     /**
      * @brief Returns a new node result
-     * 
+     *
      * @param [in] value - value
      * @param [in] left - left child
      * @param [in] right - right child
@@ -45,29 +45,29 @@ struct TreeNode
 
     /**
      * @brief Deletes a node
-     * 
+     *
      * @return Error
      */
     ErrorCode Delete();
 
     /**
      * @brief Copies the node and returns the copy
-     * 
+     *
      * @return TreeNodeResult the copy
      */
     TreeNodeResult Copy();
 
     /**
      * @brief Sets the left node.
-     * 
+     *
      * @param [in] left - the left node.
      * @return Error
      */
     ErrorCode SetLeft(TreeNode* left);
-    
+
     /**
      * @brief Sets the right node.
-     * 
+     *
      * @param [in] right - the right node.
      * @return Error
      */
@@ -81,7 +81,7 @@ struct TreeNodeResult
 
 /** @struct TreeNodeCountResult
  * @brief Used for counting nodes.
- * 
+ *
  * @var TreeNodeCountResult::value - how many nodes
  * @var TreeNodeCountResult::error
  */
@@ -93,7 +93,7 @@ struct TreeNodeCountResult
 
 /** @struct Tree
  * @brief Represents a binary tree
- * 
+ *
  * @var Tree::root - root of the tree
  * @var Tree::size - number of nodes in the tree
  */
@@ -107,7 +107,7 @@ struct Tree
 
     /**
      * @brief Initializes a tree with a root node
-     * 
+     *
      * @param [in] root
      * @return Error
      */
@@ -115,28 +115,28 @@ struct Tree
 
     /**
      * @brief Initializes a tree with an empty root
-     * 
-     * @return ErrorCode 
+     *
+     * @return ErrorCode
      */
     ErrorCode Init();
 
     /**
      * @brief Destroys the tree
-     * 
+     *
      * @return Error
      */
     ErrorCode Destructor();
 
     /**
      * @brief Checks the tree's integrity
-     * 
+     *
      * @return Error
      */
     ErrorCode Verify();
-    
+
     /**
      * @brief Counts nodes in the tree
-     * 
+     *
      * @return Error
      */
     TreeNodeCountResult CountNodes();
@@ -144,7 +144,7 @@ struct Tree
     #ifdef SIZE_VERIFICATION
     /**
      * @brief Recalculates @ref TreeNode::nodeCount for every node in tree
-     * 
+     *
      * @return Error
      */
     ErrorCode RecalculateNodes();
@@ -152,7 +152,7 @@ struct Tree
 
     /**
      * @brief Draws a tree into @ref IMG_FOLDER using Graphviz
-     * 
+     *
      * @return Error
      */
     ErrorCode Dump();
@@ -163,7 +163,7 @@ struct Tree
 
 /** @struct TreeResult
  * @brief Used as a tree result.
- * 
+ *
  * @var TreeResult::value - tree
  * @var TreeResult::error
  */

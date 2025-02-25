@@ -1,9 +1,2 @@
-*.json
-*.o
-*.txt
-main
-*.png
-*.dot
-tex/*
-*.pdf
-*.html
+build/
+.cache/

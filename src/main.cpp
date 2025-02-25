@@ -65,7 +65,7 @@ int main(int argc, const char* const argv[])
     #endif
 
     error = tree.Destructor();
-    MyAssertSoft(!error, error, free(expression), free(expression); treeDiff1.Destructor());
+    MyAssertSoft(!error, error, free(expression); treeDiff1.Destructor());
 
     error = treeDiff1.Destructor();
     MyAssertSoft(!error, error, free(expression));
