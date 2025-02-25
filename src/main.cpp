@@ -16,7 +16,7 @@ int main(int argc, const char* const argv[])
     {
         case 1:
             expression = (char*)calloc(MAX_EXPRESSION_LENGTH + 1, sizeof(*expression));
-            scanf("%" MAX_EXPRESSION_LENGTH_DEFINE "s", expression);
+            fgets(expression, MAX_EXPRESSION_LENGTH, stdin);
             break;
         case 2:
             expression = strdup(argv[1]);
