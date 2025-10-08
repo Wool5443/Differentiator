@@ -9,7 +9,7 @@ static const size_t MAX_COMMAND_LENGTH = 512;
 
 static const char* TEX_FILE_NAME = "math.tex";
 
-static const char PREAMBLE[] = 
+static const char PREAMBLE[] =
 "\\documentclass[12pt, a4paper]{article}\n"
 "\\usepackage[T1,T2A]{fontenc}\n"
 "\\usepackage[utf8]{inputenc}\n"
@@ -36,7 +36,7 @@ TexFileResult LatexFileInit(const char* texFolder)
     MyAssertSoftResult(texFolder, nullptr, ERROR_NULLPTR);
     char texFilePath[MAX_FILE_LENGTH] = "";
     sprintf(texFilePath, "%s/%s", texFolder, TEX_FILE_NAME);
-    
+
     srand(time(NULL));
 
     FILE* texFile = fopen(texFilePath, "w");
@@ -134,7 +134,7 @@ ErrorCode _recTexWriteFunction(TreeNode* node, FILE* texFile, bool hasOneArg, co
         fprintf(texFile, "\\%s(", funcName);
         RETURN_ERROR(_recTexWrite(node->left, texFile));
         fprintf(texFile, ")");
-        
+
     }
     else
     {
@@ -184,9 +184,6 @@ ErrorCode _printSubExpression(TreeNode* node, int priority, FILE* texFile)
 {
     MyAssertHard(node, ERROR_NULLPTR);
     MyAssertSoft(texFile, ERROR_BAD_FILE);
-
-    if (NODE_TYPE(node) == OPERATION_TYPE && NODE_OPERATION(node) == COS_OPERATION)
-        printf("Node type: %d\nNode_priority: %d\nPriority: %d\n\n---------\n", NODE_TYPE(node), node->value.priority, priority);
 
     if (NODE_TYPE(node) == OPERATION_TYPE && node->value.priority < priority)
     {
